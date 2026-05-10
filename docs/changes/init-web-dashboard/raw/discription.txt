@@ -1,0 +1,21 @@
+# Web Dashboard — Phân Tích Ngân Hàng
+
+## Input
+- Dữ liệu thô từ database tại thư mục `./database`
+
+## Yêu Cầu
+
+### 1. Danh Sách Ngân Hàng
+- Hiển thị các ngân hàng trong quý/năm mới nhất đã có Báo Cáo Tài Chính (BCTC) được xử lý (bảng `bctc_new`)
+- Mỗi ngân hàng hiển thị các chỉ số tài chính quan trọng:
+  - **NPL** — Tỷ lệ nợ xấu
+  - **LLR** — Tỷ lệ dự phòng bao phủ nợ xấu
+  - **LDR** — Tỷ lệ cho vay trên huy động
+  - **Tăng Trưởng Doanh Thu** — So với cùng kỳ năm trước
+
+### 2. Biểu Đồ Trend YoY
+- Biểu đồ xu hướng theo năm (Year-over-Year) cho từng ngân hàng
+
+### 3. Cross-Bank Ranking
+- Tính điểm xếp hạng các ngân hàng theo logic trong `./database/cal_diem.sql`
+- Vẽ biểu đồ ranking để so sánh giữa các ngân hàng

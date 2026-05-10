@@ -1,0 +1,42 @@
+const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
+
+export interface Period {
+  year: number;
+  quarter: number;
+}
+
+function periodParams(period?: Period): string {
+  if (!period) return "";
+  const p = new URLSearchParams({ year: String(period.year), quarter: String(period.quarter) });
+  return "?" + p.toString();
+}
+
+export async function fetchBanks(period?: Period, signal?: AbortSignal) {
+  const res = await fetch(`${BASE}/api/banks${periodParams(period)}`, { signal });
+  if (!res.ok) throw new Error(`/api/banks failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchTrend(code: string, period?: Period, signal?: AbortSignal) {
+  const res = await fetch(`${BASE}/api/banks/${encodeURIComponent(code)}/trend${periodParams(period)}`, { signal });
+  if (!res.ok) throw new Error(`/api/banks/${code}/trend failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchRanking(period?: Period, signal?: AbortSignal) {
+  const res = await fetch(`${BASE}/api/ranking${periodParams(period)}`, { signal });
+  if (!res.ok) throw new Error(`/api/ranking failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchRankingHistory(signal?: AbortSignal) {
+  const res = await fetch(`${BASE}/api/ranking/history`, { signal });
+  if (!res.ok) throw new Error(`/api/ranking/history failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchPeriods(signal?: AbortSignal) {
+  const res = await fetch(`${BASE}/api/periods`, { signal });
+  if (!res.ok) throw new Error(`/api/periods failed: ${res.status}`);
+  return res.json();
+}
