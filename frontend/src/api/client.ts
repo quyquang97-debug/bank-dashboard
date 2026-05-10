@@ -58,3 +58,31 @@ export async function fetchValuation(signal?: AbortSignal) {
   if (!res.ok) throw new Error(`/api/valuation failed: ${res.status}`);
   return res.json();
 }
+
+export interface ScreeningRow {
+  stockCode: string;
+  s_rank: number;
+  s_val: number;
+  score: number;
+  signal: "MUA" | "GIỮ" | "TRÁNH";
+  totalDiem: number;
+  ti_suat_sinh_loi: number;
+  current_price: number;
+  MOS: number;
+}
+
+export interface ScreeningResponse {
+  period: { year: number; quarter: number };
+  data: ScreeningRow[];
+  computed_at: string;
+}
+
+export async function fetchScreening(
+  year: number,
+  quarter: number,
+  signal?: AbortSignal
+): Promise<ScreeningResponse> {
+  const res = await fetch(`${BASE}/api/screening?year=${year}&quarter=${quarter}`, { signal });
+  if (!res.ok) throw new Error(`/api/screening failed: ${res.status}`);
+  return res.json();
+}

@@ -6,9 +6,10 @@ import { TrendChart } from "./components/TrendChart";
 import { RankingChart } from "./components/RankingChart";
 import { PeriodFilter } from "./components/PeriodFilter";
 import { ValuationTab } from "./components/ValuationTab";
+import { ScreeningTab } from "./components/ScreeningTab";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"ranking" | "valuation">("ranking");
+  const [activeTab, setActiveTab] = useState<"ranking" | "valuation" | "screening">("ranking");
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<Period | null>(null);
@@ -55,8 +56,8 @@ export default function App() {
 
         {/* Tabs */}
         <div style={{ display: "flex", padding: "0 0.5rem" }}>
-          {(["ranking", "valuation"] as const).map((tab) => {
-            const label = tab === "ranking" ? "📊  Xếp Hạng" : "💎  Định Giá";
+          {(["ranking", "valuation", "screening"] as const).map((tab) => {
+            const label = tab === "ranking" ? "📊  Xếp Hạng" : tab === "valuation" ? "💎  Định Giá" : "🎯  Sàng Lọc";
             const isActive = activeTab === tab;
             return (
               <button
@@ -118,6 +119,12 @@ export default function App() {
         <div className="card">
           <h2 style={{ marginBottom: "16px" }}>Định Giá Cổ Phiếu</h2>
           <ValuationTab />
+        </div>
+      )}
+
+      {activeTab === "screening" && (
+        <div className="card">
+          <ScreeningTab />
         </div>
       )}
     </main>
