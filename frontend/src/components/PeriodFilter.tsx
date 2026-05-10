@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Period } from "../api/client";
 
 interface Props {
@@ -6,19 +7,17 @@ interface Props {
   onChange: (period: Period) => void;
 }
 
-function periodLabel(p: Period): string {
-  return p.quarter === 0 ? `${p.year} (Năm)` : `Q${p.quarter}/${p.year}`;
-}
-
 function periodKey(p: Period): string {
   return `${p.year}-${p.quarter}`;
 }
 
 export function PeriodFilter({ periods, selected, onChange }: Props) {
+  const { t } = useTranslation();
+
   if (periods.length === 0) {
     return (
       <select disabled>
-        <option>Không có dữ liệu</option>
+        <option>{t("no_data")}</option>
       </select>
     );
   }
@@ -34,7 +33,9 @@ export function PeriodFilter({ periods, selected, onChange }: Props) {
     <select value={selectedKey} onChange={handleChange}>
       {periods.map((p) => (
         <option key={periodKey(p)} value={periodKey(p)}>
-          {periodLabel(p)}
+          {p.quarter === 0
+            ? t("period_annual", { year: p.year })
+            : t("period_quarter", { quarter: p.quarter, year: p.year })}
         </option>
       ))}
     </select>

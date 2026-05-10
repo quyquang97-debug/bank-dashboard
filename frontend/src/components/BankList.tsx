@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { fetchBanks } from "../api/client";
 import type { Period } from "../api/client";
 
@@ -28,6 +29,7 @@ function fmtDiem(value: number | null): string {
 }
 
 export function BankList({ onSelectBank, selectedBank, selectedPeriod }: Props) {
+  const { t } = useTranslation();
   const [data, setData] = useState<BankRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -54,20 +56,20 @@ export function BankList({ onSelectBank, selectedBank, selectedPeriod }: Props) 
     return () => controller.abort();
   }, [selectedPeriod]);
 
-  if (loading) return <p>Đang tải…</p>;
-  if (error) return <p>Lỗi tải dữ liệu</p>;
-  if (data.length === 0) return <p>Không có dữ liệu cho kỳ này</p>;
+  if (loading) return <p>{t("loading")}</p>;
+  if (error) return <p>{t("error_load")}</p>;
+  if (data.length === 0) return <p>{t("no_data_period")}</p>;
 
   return (
     <table>
       <thead>
         <tr>
-          <th>Ngân Hàng</th>
-          <th>NPL (%)</th>
-          <th>LLR (%)</th>
-          <th>LDR (%)</th>
-          <th>Tăng Trưởng (%)</th>
-          <th>Điểm Tổng</th>
+          <th>{t("col_bank")}</th>
+          <th>{t("col_npl")}</th>
+          <th>{t("col_llr")}</th>
+          <th>{t("col_ldr")}</th>
+          <th>{t("col_growth")}</th>
+          <th>{t("col_total_score")}</th>
         </tr>
       </thead>
       <tbody>

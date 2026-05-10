@@ -167,7 +167,7 @@ export function RankingChart({ selectedPeriod }: Props) {
                   <p style={{ margin: "0 0 0.25rem", fontWeight: 600, color: "#dde9ff" }}>{label}</p>
                   {sorted.map((p) => (
                     <p key={p.dataKey as string} style={{ margin: "0.1rem 0", color: p.color, fontSize: "0.84rem" }}>
-                      {p.dataKey}: {p.value}
+                      {String(p.dataKey)}: {p.value}
                     </p>
                   ))}
                 </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   LineChart,
   Line,
@@ -33,14 +34,14 @@ interface Props {
   selectedPeriod: Period | null;
 }
 
-const METRICS: { key: keyof TrendPoint; label: string; color: string }[] = [
-  { key: "npl", label: "NPL", color: "#e74c3c" },
-  { key: "llr", label: "LLR", color: "#2ecc71" },
-  { key: "ldr", label: "LDR", color: "#3498db" },
-  { key: "tangTruongDoanhThu", label: "Tăng Trưởng DT", color: "#f39c12" },
+const METRICS: { key: keyof TrendPoint; labelKey: string; color: string }[] = [
+  { key: "npl", labelKey: "col_npl", color: "#e74c3c" },
+  { key: "llr", labelKey: "col_llr", color: "#2ecc71" },
+  { key: "ldr", labelKey: "col_ldr", color: "#3498db" },
+  { key: "tangTruongDoanhThu", labelKey: "metric_growth_revenue", color: "#f39c12" },
 ];
 
-function TrendLines({ activeMetrics }: { activeMetrics: Set<string> }) {
+function TrendLines({ activeMetrics, labels }: { activeMetrics: Set<string>; labels: Record<string, string> }) {
   return (
     <>
       {METRICS.map((m) => (
@@ -48,7 +49,7 @@ function TrendLines({ activeMetrics }: { activeMetrics: Set<string> }) {
           key={m.key}
           type="monotone"
           dataKey={m.key}
-          name={m.label}
+          name={labels[m.key]}
           stroke={m.color}
           hide={!activeMetrics.has(m.key)}
           strokeWidth={2.5}
@@ -62,9 +63,11 @@ function TrendLines({ activeMetrics }: { activeMetrics: Set<string> }) {
 
 function MetricToggles({
   activeMetrics,
+  labels,
   onToggle,
 }: {
   activeMetrics: Set<string>;
+  labels: Record<string, string>;
   onToggle: (key: string) => void;
 }) {
   return (
@@ -76,7 +79,7 @@ function MetricToggles({
             checked={activeMetrics.has(m.key)}
             onChange={() => onToggle(m.key)}
           />
-          <span style={{ color: m.color }}>{m.label}</span>
+          <span style={{ color: m.color }}>{labels[m.key]}</span>
         </label>
       ))}
     </div>
@@ -84,12 +87,15 @@ function MetricToggles({
 }
 
 export function TrendChart({ selectedBank, selectedPeriod }: Props) {
+  const { t } = useTranslation();
   const [data, setData] = useState<TrendData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [activeMetrics, setActiveMetrics] = useState<Set<string>>(
     new Set(METRICS.map((m) => m.key as string))
   );
+
+  const labels = Object.fromEntries(METRICS.map((m) => [m.key, t(m.labelKey)]));
 
   useEffect(() => {
     if (!selectedBank) return;
@@ -116,10 +122,10 @@ export function TrendChart({ selectedBank, selectedPeriod }: Props) {
   };
 
   if (!selectedBank) {
-    return <p>Chọn một ngân hàng từ danh sách để xem xu hướng</p>;
+    return <p>{t("trend_select_bank")}</p>;
   }
-  if (loading) return <p>Đang tải…</p>;
-  if (error) return <p>Lỗi tải dữ liệu</p>;
+  if (loading) return <p>{t("loading")}</p>;
+  if (error) return <p>{t("error_load")}</p>;
   if (!data) return null;
 
   const isQuarterly = selectedPeriod !== null && selectedPeriod.quarter !== 0;
@@ -128,13 +134,13 @@ export function TrendChart({ selectedBank, selectedPeriod }: Props) {
 
   return (
     <div>
-      <MetricToggles activeMetrics={activeMetrics} onToggle={toggleMetric} />
+      <MetricToggles activeMetrics={activeMetrics} labels={labels} onToggle={toggleMetric} />
 
       {showAnnual && (
         <>
-          <h3>Xu hướng theo năm — {selectedBank}</h3>
+          <h3>{t("trend_annual_title", { bank: selectedBank })}</h3>
           {data.annual.length === 0 ? (
-            <p>Chưa có dữ liệu báo cáo năm</p>
+            <p>{t("trend_no_annual_data")}</p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={data.annual}>
@@ -143,7 +149,7 @@ export function TrendChart({ selectedBank, selectedPeriod }: Props) {
                 <YAxis tick={{ fill: "rgba(210,225,255,0.45)", fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ background: "#0f1b35", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }} labelStyle={{ color: "#dde9ff", fontWeight: 600 }} />
                 <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
-                <TrendLines activeMetrics={activeMetrics} />
+                <TrendLines activeMetrics={activeMetrics} labels={labels} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -152,9 +158,9 @@ export function TrendChart({ selectedBank, selectedPeriod }: Props) {
 
       {showQuarterly && (
         <>
-          <h3>Xu hướng theo quý — {selectedBank}</h3>
+          <h3>{t("trend_quarterly_title", { bank: selectedBank })}</h3>
           {data.quarterly.length === 0 ? (
-            <p>Chưa có dữ liệu báo cáo quý</p>
+            <p>{t("trend_no_quarterly_data")}</p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={data.quarterly}>
@@ -163,7 +169,7 @@ export function TrendChart({ selectedBank, selectedPeriod }: Props) {
                 <YAxis tick={{ fill: "rgba(210,225,255,0.45)", fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ background: "#0f1b35", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }} labelStyle={{ color: "#dde9ff", fontWeight: 600 }} />
                 <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
-                <TrendLines activeMetrics={activeMetrics} />
+                <TrendLines activeMetrics={activeMetrics} labels={labels} />
               </LineChart>
             </ResponsiveContainer>
           )}

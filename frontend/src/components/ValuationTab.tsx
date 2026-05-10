@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { runValuation, fetchValuation } from "../api/client";
 
 type ValuationRow = {
@@ -21,6 +22,7 @@ type RunState =
   | { kind: "done" };
 
 export function ValuationTab() {
+  const { t } = useTranslation();
   const [ui, setUi] = useState<UIState>({ kind: "loading" });
   const [run, setRun] = useState<RunState>({ kind: "idle" });
 
@@ -59,14 +61,14 @@ export function ValuationTab() {
     <div style={{ minHeight: "200px", position: "relative" }}>
       <div style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "12px" }}>
         <button onClick={handleRevaluation} disabled={run.kind === "running"}>
-          {run.kind === "running" ? "Đang tính toán..." : "Thực hiện định giá lại"}
+          {run.kind === "running" ? t("btn_revalue_running") : t("btn_revalue")}
         </button>
-        {run.kind === "error" && <span style={{ color: "#f87171", fontSize: "0.85rem" }}>Lỗi tính toán, vui lòng thử lại.</span>}
-        {run.kind === "done" && <span style={{ color: "#34d399", fontSize: "0.85rem" }}>Định giá hoàn tất.</span>}
+        {run.kind === "error" && <span style={{ color: "#f87171", fontSize: "0.85rem" }}>{t("msg_revalue_error")}</span>}
+        {run.kind === "done" && <span style={{ color: "#34d399", fontSize: "0.85rem" }}>{t("msg_revalue_done")}</span>}
       </div>
 
-      {ui.kind === "loading" && <p>Đang tải dữ liệu...</p>}
-      {ui.kind === "error" && <p>Lỗi tải dữ liệu, vui lòng thử lại.</p>}
+      {ui.kind === "loading" && <p>{t("loading_data")}</p>}
+      {ui.kind === "error" && <p>{t("error_load_retry")}</p>}
       {ui.kind === "result" && <ValuationTable rows={ui.rows} />}
     </div>
   );
@@ -78,16 +80,17 @@ function rowBackground(ti: number | null): string {
 }
 
 function ValuationTable({ rows }: { rows: ValuationRow[] }) {
+  const { t } = useTranslation();
   return (
     <table style={{ borderCollapse: "collapse", width: "100%" }}>
       <thead>
         <tr>
-          <th>STT</th>
-          <th>Mã CK</th>
-          <th>Giá Hiện Tại</th>
-          <th>Giá Trị Nội Tại (MOS)</th>
-          <th>Tỉ Suất Sinh Lời</th>
-          <th>Cập Nhật Lúc</th>
+          <th>{t("col_no")}</th>
+          <th>{t("col_stock_code")}</th>
+          <th>{t("col_price")}</th>
+          <th>{t("col_intrinsic")}</th>
+          <th>{t("col_return_rate")}</th>
+          <th>{t("col_updated")}</th>
         </tr>
       </thead>
       <tbody>
