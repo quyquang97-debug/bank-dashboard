@@ -40,3 +40,21 @@ export async function fetchPeriods(signal?: AbortSignal) {
   if (!res.ok) throw new Error(`/api/periods failed: ${res.status}`);
   return res.json();
 }
+
+export async function runValuation(signal?: AbortSignal) {
+  const res = await fetch(`${BASE}/api/valuation/run`, { method: "POST", signal });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const err = new Error(`/api/valuation/run failed: ${res.status}`);
+    (err as any).status = res.status;
+    (err as any).body = body;
+    throw err;
+  }
+  return res.json();
+}
+
+export async function fetchValuation(signal?: AbortSignal) {
+  const res = await fetch(`${BASE}/api/valuation`, { signal });
+  if (!res.ok) throw new Error(`/api/valuation failed: ${res.status}`);
+  return res.json();
+}

@@ -1,4 +1,6 @@
+#old
 database/
+
 # Dependencies
 node_modules/
 .pnp

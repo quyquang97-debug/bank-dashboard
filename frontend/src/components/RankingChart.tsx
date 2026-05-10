@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { fetchRankingHistory } from "../api/client";
+import type { Period } from "../api/client";
 
 interface RawRow {
   year: number;
@@ -33,7 +34,15 @@ function periodLabel(year: number, quarter: number) {
   return quarter === 0 ? `${year}` : `${year}-Q${quarter}`;
 }
 
-export function RankingChart() {
+function periodSort(year: number, quarter: number) {
+  return year * 10 + (quarter === 0 ? 5 : quarter);
+}
+
+interface Props {
+  selectedPeriod: Period | null;
+}
+
+export function RankingChart({ selectedPeriod }: Props) {
   const [raw, setRaw] = useState<RawRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -49,7 +58,6 @@ export function RankingChart() {
         }));
         setRaw(rows);
 
-        // Compute final cumulative score per bank to pick top 5
         const finalScore: Record<string, number> = {};
         for (const r of rows) {
           finalScore[r.stockCode] = (finalScore[r.stockCode] ?? 0) + r.totalDiem;
@@ -67,17 +75,24 @@ export function RankingChart() {
     return () => controller.abort();
   }, []);
 
-  // Sorted unique periods
-  const periods = useMemo(() => {
+  // All sorted periods from raw data
+  const allPeriods = useMemo(() => {
     const seen = new Map<string, { year: number; quarter: number; sort: number }>();
     for (const r of raw) {
       const key = periodLabel(r.year, r.quarter);
-      if (!seen.has(key)) seen.set(key, { year: r.year, quarter: r.quarter, sort: r.year * 10 + (r.quarter === 0 ? 5 : r.quarter) });
+      if (!seen.has(key))
+        seen.set(key, { year: r.year, quarter: r.quarter, sort: periodSort(r.year, r.quarter) });
     }
     return [...seen.values()].sort((a, b) => a.sort - b.sort);
   }, [raw]);
 
-  // All banks sorted by final cumulative score
+  // Filter periods up to selectedPeriod
+  const periods = useMemo(() => {
+    if (!selectedPeriod) return allPeriods;
+    const cutoff = periodSort(selectedPeriod.year, selectedPeriod.quarter);
+    return allPeriods.filter((p) => p.sort <= cutoff);
+  }, [allPeriods, selectedPeriod]);
+
   const allBanks = useMemo(() => {
     const finalScore: Record<string, number> = {};
     for (const r of raw) {
@@ -88,9 +103,7 @@ export function RankingChart() {
       .map(([code]) => code);
   }, [raw]);
 
-  // Build recharts data: cumulative scores per period per bank
   const chartData = useMemo<ChartPoint[]>(() => {
-    // raw lookup: periodKey → bank → score
     const lookup: Record<string, Record<string, number>> = {};
     for (const r of raw) {
       const key = periodLabel(r.year, r.quarter);
@@ -140,9 +153,9 @@ export function RankingChart() {
 
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="label" />
-          <YAxis />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
+          <XAxis dataKey="label" tick={{ fill: "rgba(210,225,255,0.45)", fontSize: 12 }} axisLine={{ stroke: "rgba(255,255,255,0.1)" }} tickLine={false} />
+          <YAxis tick={{ fill: "rgba(210,225,255,0.45)", fontSize: 12 }} axisLine={false} tickLine={false} />
           <Tooltip
             content={({ active, payload, label }) => {
               if (!active || !payload?.length) return null;
@@ -150,10 +163,10 @@ export function RankingChart() {
                 .filter((p) => !p.hide && p.value != null)
                 .sort((a, b) => (b.value as number) - (a.value as number));
               return (
-                <div style={{ background: "#fff", border: "1px solid #ccc", padding: "0.5rem 0.75rem", borderRadius: 4 }}>
-                  <p style={{ margin: "0 0 0.25rem", fontWeight: 600 }}>{label}</p>
+                <div style={{ background: "#0f1b35", border: "1px solid rgba(255,255,255,0.12)", padding: "0.5rem 0.75rem", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
+                  <p style={{ margin: "0 0 0.25rem", fontWeight: 600, color: "#dde9ff" }}>{label}</p>
                   {sorted.map((p) => (
-                    <p key={p.dataKey as string} style={{ margin: "0.1rem 0", color: p.color }}>
+                    <p key={p.dataKey as string} style={{ margin: "0.1rem 0", color: p.color, fontSize: "0.84rem" }}>
                       {p.dataKey}: {p.value}
                     </p>
                   ))}

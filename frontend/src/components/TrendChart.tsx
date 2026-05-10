@@ -138,11 +138,11 @@ export function TrendChart({ selectedBank, selectedPeriod }: Props) {
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={data.annual}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
+                <XAxis dataKey="label" tick={{ fill: "rgba(210,225,255,0.45)", fontSize: 12 }} axisLine={{ stroke: "rgba(255,255,255,0.1)" }} tickLine={false} />
+                <YAxis tick={{ fill: "rgba(210,225,255,0.45)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "#0f1b35", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }} labelStyle={{ color: "#dde9ff", fontWeight: 600 }} />
+                <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
                 <TrendLines activeMetrics={activeMetrics} />
               </LineChart>
             </ResponsiveContainer>
@@ -158,11 +158,11 @@ export function TrendChart({ selectedBank, selectedPeriod }: Props) {
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={data.quarterly}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
+                <XAxis dataKey="label" tick={{ fill: "rgba(210,225,255,0.45)", fontSize: 12 }} axisLine={{ stroke: "rgba(255,255,255,0.1)" }} tickLine={false} />
+                <YAxis tick={{ fill: "rgba(210,225,255,0.45)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "#0f1b35", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8 }} labelStyle={{ color: "#dde9ff", fontWeight: 600 }} />
+                <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
                 <TrendLines activeMetrics={activeMetrics} />
               </LineChart>
             </ResponsiveContainer>
