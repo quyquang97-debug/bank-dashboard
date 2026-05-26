@@ -2,7 +2,6 @@ import { Router, Request, Response } from "express";
 import { pool } from "../db/connection.js";
 import { validateEntry } from "../lib/decisionValidation.js";
 import {
-  getCurrentPrice,
   getHistoricalPrices,
   buildPriceSnapshot,
   buildNonStockPriceSnapshot,
@@ -177,16 +176,19 @@ decisionsRouter.get("/:id/current-price", async (req: Request, res: Response) =>
     if (entries.length === 0) return res.status(404).json({ error: "not_found" });
     const entry = entries[0];
     if (entry.asset_type !== "STOCK") return res.status(400).json({ error: "not_stock" });
-    try {
-      const currentPrice = await getCurrentPrice(entry.ticker);
-      const changePct = entry.entry_price > 0
-        ? ((currentPrice - entry.entry_price) / entry.entry_price) * 100
-        : 0;
-      return res.json({ data: { currentPrice, changePct, fetchedAt: new Date().toISOString() } });
-    } catch (err) {
-      if (err instanceof PriceFetchError) return res.status(503).json({ error: "price_fetch_failed" });
-      throw err;
+
+    const [pbRows] = await pool.execute<any[]>(
+      "SELECT current_price FROM paybacktime WHERE StockCode = ?",
+      [entry.ticker]
+    );
+    if (pbRows.length === 0 || pbRows[0].current_price == null) {
+      return res.status(503).json({ error: "price_fetch_failed" });
     }
+    const currentPrice: number = Number(pbRows[0].current_price);
+    const changePct = entry.entry_price > 0
+      ? ((currentPrice - entry.entry_price) / entry.entry_price) * 100
+      : 0;
+    return res.json({ data: { currentPrice, changePct, fetchedAt: new Date().toISOString() } });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return res.status(500).json({ error: message });
@@ -391,21 +393,24 @@ decisionsRouter.post("/:id/reviews", async (req: Request, res: Response) => {
         let history: Awaited<ReturnType<typeof getHistoricalPrices>>;
         if (clientCurrentPrice != null) {
           currentPrice = clientCurrentPrice;
-          try {
-            [history, vnindexHistory] = await Promise.all([
-              getHistoricalPrices(entry.ticker, startDate, endDate),
-              getHistoricalPrices("VNINDEX", startDate, endDate),
-            ]);
-          } catch {
-            history = [];
-            vnindexHistory = [];
-          }
         } else {
-          [currentPrice, history, vnindexHistory] = await Promise.all([
-            getCurrentPrice(entry.ticker),
+          const [pbRows] = await pool.execute<any[]>(
+            "SELECT current_price FROM paybacktime WHERE StockCode = ?",
+            [entry.ticker]
+          );
+          if (pbRows.length === 0 || pbRows[0].current_price == null) {
+            return res.status(503).json({ error: "price_fetch_failed" });
+          }
+          currentPrice = Number(pbRows[0].current_price);
+        }
+        try {
+          [history, vnindexHistory] = await Promise.all([
             getHistoricalPrices(entry.ticker, startDate, endDate),
             getHistoricalPrices("VNINDEX", startDate, endDate),
           ]);
+        } catch {
+          history = [];
+          vnindexHistory = [];
         }
         const riskPlan = entry.risk_plan
           ? (typeof entry.risk_plan === "string" ? JSON.parse(entry.risk_plan) : entry.risk_plan)
