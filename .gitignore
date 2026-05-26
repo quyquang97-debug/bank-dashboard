@@ -82,4 +82,4 @@ playwright/.cache/
 .yarn/install-state.gz
 .pnpm-store/
 
-*.package-lock.json
+package-lock.json
