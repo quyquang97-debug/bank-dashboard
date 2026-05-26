@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --bg:       #07111f;
   --surface:  #0f1b35;
   --card:     rgba(255, 255, 255, 0.035);

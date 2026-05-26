@@ -51,5 +51,118 @@
   "trend_annual_title": "Annual Trend — {{bank}}",
   "trend_quarterly_title": "Quarterly Trend — {{bank}}",
   "trend_no_annual_data": "No annual report data",
-  "trend_no_quarterly_data": "No quarterly report data"
+  "trend_no_quarterly_data": "No quarterly report data",
+  "decisions": {
+    "tab_title": "My Decisions",
+    "summary_tab_title": "Summary",
+    "btn_add": "+ Add Decision",
+    "btn_evaluate": "Evaluate",
+    "btn_patterns": "Analyze Patterns",
+    "btn_edit": "Edit",
+    "btn_delete": "Delete",
+    "btn_save": "Save",
+    "btn_cancel": "Cancel",
+    "empty_state": "No decisions yet — click '+ Add Decision' to start",
+    "loading": "Loading…",
+    "evaluate_too_soon": "Please wait at least 24h after making the decision",
+    "evaluate_timeout": "Evaluation took too long — please try again",
+    "evaluate_price_fail": "Could not fetch price — please try again",
+    "evaluate_ai_fail": "AI could not evaluate — please try again",
+    "note_placeholder": "Your personal notes...",
+    "no_pattern": "No patterns yet — click 'Analyze Patterns' to start",
+    "insufficient_data": "Need at least 5 reviews to detect patterns",
+    "pattern_computed_at": "Computed at: {{datetime}}",
+    "verdict": {
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "unclear": "Unclear"
+    },
+    "type": {
+      "buy": "Buy",
+      "sell": "Sell",
+      "hold": "Hold",
+      "watch": "Watch"
+    },
+    "mood": {
+      "calm": "Calm",
+      "excited": "Excited",
+      "fearful": "Fearful",
+      "fomo": "FOMO",
+      "neutral": "Neutral"
+    },
+    "asset_type": {
+      "stock": "Stock",
+      "gold": "Gold",
+      "crypto": "Crypto",
+      "savings": "Savings"
+    },
+    "form": {
+      "asset_type": "Asset Type",
+      "ticker": "Ticker",
+      "decision_type": "Decision Type",
+      "decided_at": "Decision Date",
+      "entry_price": "Entry Price (VND)",
+      "entry_price_savings": "Principal Amount (VND)",
+      "volume": "Portfolio Weight (%)",
+      "quantity": "Quantity",
+      "buy_amount": "Buy Amount (VND)",
+      "reason": "Reason",
+      "confidence": "Confidence",
+      "mood": "Mood",
+      "sources": "Sources",
+      "stop_loss": "Stop-loss",
+      "take_profit": "Take-profit",
+      "dca": "DCA",
+      "trailing_stop": "Trailing Stop",
+      "max_portfolio_pct": "Max Portfolio (%)"
+    },
+    "error": {
+      "reason_too_short": "Reason must be at least 20 characters",
+      "stop_loss_required": "Stop-loss is required for BUY",
+      "exit_pct_exceeds": "Total exit % exceeds 100%",
+      "invalid_asset_type": "Invalid asset type",
+      "invalid_quantity": "Quantity must be a non-negative integer",
+      "invalid_buy_amount": "Buy amount must be a non-negative integer",
+      "manual_price_required": "Please enter the current price before evaluating"
+    },
+    "badge": {
+      "reviewed": "Reviewed",
+      "not_reviewed": "Not Reviewed"
+    },
+    "col": {
+      "date": "Date",
+      "ticker": "Ticker",
+      "type": "Type",
+      "price": "Entry Price",
+      "volume": "Weight",
+      "reason_preview": "Reason",
+      "status": "Status",
+      "asset_type": "Asset Type"
+    },
+    "confirm_delete": "Are you sure you want to delete this decision?",
+    "delete_success": "Decision deleted.",
+    "save_success": "Saved.",
+    "summary": {
+      "title": "Decision Summary",
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "unclear": "Unclear",
+      "total": "Total",
+      "mistake_patterns": "Recurring Mistake Patterns",
+      "success_patterns": "Success Patterns"
+    },
+    "review": {
+      "verdict_reason": "Verdict",
+      "strengths": "Strengths",
+      "weaknesses": "Weaknesses",
+      "lessons": "Lessons",
+      "price_at_review": "Price at Review",
+      "change_pct": "Change vs Entry",
+      "current_price_preview": "Current Price",
+      "change_pct_preview": "Change",
+      "manual_price_label": "Current price / value (VND)",
+      "confirm_evaluate": "Confirm Evaluation",
+      "btn_cancel_evaluate": "Cancel"
+    }
+  }
 }

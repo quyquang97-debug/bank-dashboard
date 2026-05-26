@@ -6,6 +6,7 @@ import { rankingRouter } from "./routes/ranking.js";
 import { periodsRouter } from "./routes/periods.js";
 import { valuationRouter } from "./routes/valuation.js";
 import { screeningRouter } from "./routes/screening.js";
+import { decisionsRouter } from "./routes/decisions.js";
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use("/api/ranking", rankingRouter);
 app.use("/api/periods", periodsRouter);
 app.use("/api/valuation", valuationRouter);
 app.use("/api/screening", screeningRouter);
+app.use("/api/decisions", decisionsRouter);
 
 const PORT = process.env.PORT ?? 3001;
 app.listen(PORT, () => console.log(`Backend running on :${PORT}`));

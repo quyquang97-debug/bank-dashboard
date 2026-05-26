@@ -8,11 +8,13 @@ import { RankingChart } from "./components/RankingChart";
 import { PeriodFilter } from "./components/PeriodFilter";
 import { ValuationTab } from "./components/ValuationTab";
 import { ScreeningTab } from "./components/ScreeningTab";
+import { DecisionsTab } from "./components/decisions/DecisionsTab";
+import { DecisionSummary } from "./components/decisions/DecisionSummary";
 import { LangSwitcher } from "./components/LangSwitcher";
 
 export default function App() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"ranking" | "valuation" | "screening">("ranking");
+  const [activeTab, setActiveTab] = useState<"ranking" | "valuation" | "screening" | "decisions" | "summary">("ranking");
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<Period | null>(null);
@@ -59,8 +61,8 @@ export default function App() {
 
         {/* Tabs */}
         <div style={{ display: "flex", padding: "0 0.5rem" }}>
-          {(["ranking", "valuation", "screening"] as const).map((tab) => {
-            const label = tab === "ranking" ? `📊  ${t("tab_ranking")}` : tab === "valuation" ? `💎  ${t("tab_valuation")}` : `🎯  ${t("tab_screening")}`;
+          {(["ranking", "valuation", "screening", "decisions", "summary"] as const).map((tab) => {
+            const label = tab === "ranking" ? `📊  ${t("tab_ranking")}` : tab === "valuation" ? `💎  ${t("tab_valuation")}` : tab === "screening" ? `🎯  ${t("tab_screening")}` : tab === "decisions" ? `📓  ${t("decisions.tab_title")}` : `📈  ${t("decisions.summary_tab_title")}`;
             const isActive = activeTab === tab;
             return (
               <button
@@ -130,6 +132,18 @@ export default function App() {
       {activeTab === "screening" && (
         <div className="card">
           <ScreeningTab />
+        </div>
+      )}
+
+      {activeTab === "decisions" && (
+        <div className="card">
+          <DecisionsTab />
+        </div>
+      )}
+
+      {activeTab === "summary" && (
+        <div className="card">
+          <DecisionSummary />
         </div>
       )}
     </main>

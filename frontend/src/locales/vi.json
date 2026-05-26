@@ -51,5 +51,118 @@
   "trend_annual_title": "Xu hướng theo năm — {{bank}}",
   "trend_quarterly_title": "Xu hướng theo quý — {{bank}}",
   "trend_no_annual_data": "Chưa có dữ liệu báo cáo năm",
-  "trend_no_quarterly_data": "Chưa có dữ liệu báo cáo quý"
+  "trend_no_quarterly_data": "Chưa có dữ liệu báo cáo quý",
+  "decisions": {
+    "tab_title": "Quyết Định",
+    "summary_tab_title": "Tổng Kết",
+    "btn_add": "+ Thêm quyết định",
+    "btn_evaluate": "Đánh giá",
+    "btn_patterns": "Tính pattern",
+    "btn_edit": "Sửa",
+    "btn_delete": "Xoá",
+    "btn_save": "Lưu",
+    "btn_cancel": "Huỷ",
+    "empty_state": "Chưa có quyết định nào — bấm '+ Thêm' để bắt đầu",
+    "loading": "Đang tải…",
+    "evaluate_too_soon": "Cần đợi ít nhất 24h sau khi ra quyết định",
+    "evaluate_timeout": "Đánh giá quá lâu — vui lòng thử lại",
+    "evaluate_price_fail": "Không lấy được giá — vui lòng thử lại",
+    "evaluate_ai_fail": "AI không thể đánh giá — vui lòng thử lại",
+    "note_placeholder": "Ghi chú cá nhân của bạn...",
+    "no_pattern": "Chưa có pattern — bấm 'Tính pattern' để phân tích",
+    "insufficient_data": "Cần ít nhất 5 đánh giá để phát hiện pattern",
+    "pattern_computed_at": "Tính lúc: {{datetime}}",
+    "verdict": {
+      "correct": "Đúng",
+      "wrong": "Sai",
+      "unclear": "Chưa rõ"
+    },
+    "type": {
+      "buy": "Mua",
+      "sell": "Bán",
+      "hold": "Giữ",
+      "watch": "Quan sát"
+    },
+    "mood": {
+      "calm": "Bình tĩnh",
+      "excited": "Hứng khởi",
+      "fearful": "Lo sợ",
+      "fomo": "FOMO",
+      "neutral": "Trung tính"
+    },
+    "asset_type": {
+      "stock": "Cổ phiếu",
+      "gold": "Vàng",
+      "crypto": "Tiền ảo",
+      "savings": "Gửi tiết kiệm"
+    },
+    "form": {
+      "asset_type": "Loại tài sản",
+      "ticker": "Mã chứng khoán",
+      "decision_type": "Loại quyết định",
+      "decided_at": "Thời điểm quyết định",
+      "entry_price": "Giá vào lệnh (VNĐ)",
+      "entry_price_savings": "Số tiền gốc (VNĐ)",
+      "volume": "Tỉ trọng danh mục (%)",
+      "quantity": "Số lượng",
+      "buy_amount": "Số tiền mua (VNĐ)",
+      "reason": "Lý do quyết định",
+      "confidence": "Mức độ tự tin",
+      "mood": "Tâm trạng",
+      "sources": "Nguồn tham khảo",
+      "stop_loss": "Stop-loss",
+      "take_profit": "Take-profit",
+      "dca": "DCA",
+      "trailing_stop": "Trailing stop",
+      "max_portfolio_pct": "Tỉ trọng tối đa (%)"
+    },
+    "error": {
+      "reason_too_short": "Lý do phải có ít nhất 20 ký tự",
+      "stop_loss_required": "Bắt buộc có stop-loss khi BUY",
+      "exit_pct_exceeds": "Tổng tỉ lệ chốt lời vượt 100%",
+      "invalid_asset_type": "Loại tài sản không hợp lệ",
+      "invalid_quantity": "Số lượng phải là số nguyên không âm",
+      "invalid_buy_amount": "Số tiền mua phải là số nguyên không âm",
+      "manual_price_required": "Vui lòng nhập giá hiện tại trước khi đánh giá"
+    },
+    "badge": {
+      "reviewed": "Đã đánh giá",
+      "not_reviewed": "Chưa đánh giá"
+    },
+    "col": {
+      "date": "Ngày",
+      "ticker": "Mã CK",
+      "type": "Loại",
+      "price": "Giá vào",
+      "volume": "Tỉ trọng",
+      "reason_preview": "Lý do",
+      "status": "Trạng thái",
+      "asset_type": "Loại tài sản"
+    },
+    "confirm_delete": "Bạn có chắc muốn xoá quyết định này không?",
+    "delete_success": "Đã xoá quyết định.",
+    "save_success": "Đã lưu.",
+    "summary": {
+      "title": "Tổng kết quyết định",
+      "correct": "Đúng",
+      "wrong": "Sai",
+      "unclear": "Chưa rõ",
+      "total": "Tổng",
+      "mistake_patterns": "Pattern sai lầm lặp lại",
+      "success_patterns": "Pattern thành công"
+    },
+    "review": {
+      "verdict_reason": "Nhận định",
+      "strengths": "Điểm hợp lý",
+      "weaknesses": "Điểm yếu",
+      "lessons": "Bài học",
+      "price_at_review": "Giá lúc đánh giá",
+      "change_pct": "Thay đổi so với giá vào",
+      "current_price_preview": "Giá hiện tại",
+      "change_pct_preview": "Thay đổi",
+      "manual_price_label": "Giá / giá trị hiện tại (VNĐ)",
+      "confirm_evaluate": "Xác nhận đánh giá",
+      "btn_cancel_evaluate": "Hủy"
+    }
+  }
 }

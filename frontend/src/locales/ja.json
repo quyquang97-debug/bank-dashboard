@@ -51,5 +51,118 @@
   "trend_annual_title": "年次トレンド — {{bank}}",
   "trend_quarterly_title": "四半期トレンド — {{bank}}",
   "trend_no_annual_data": "年次レポートデータがありません",
-  "trend_no_quarterly_data": "四半期レポートデータがありません"
+  "trend_no_quarterly_data": "四半期レポートデータがありません",
+  "decisions": {
+    "tab_title": "私の決定",
+    "summary_tab_title": "サマリー",
+    "btn_add": "+ 決定を追加",
+    "btn_evaluate": "評価する",
+    "btn_patterns": "パターン分析",
+    "btn_edit": "編集",
+    "btn_delete": "削除",
+    "btn_save": "保存",
+    "btn_cancel": "キャンセル",
+    "empty_state": "まだ決定がありません — '+ 決定を追加'をクリックして始めましょう",
+    "loading": "読み込み中…",
+    "evaluate_too_soon": "決定から少なくとも24時間待ってください",
+    "evaluate_timeout": "評価に時間がかかりすぎました — 再試行してください",
+    "evaluate_price_fail": "価格を取得できませんでした — 再試行してください",
+    "evaluate_ai_fail": "AIが評価できませんでした — 再試行してください",
+    "note_placeholder": "個人メモ...",
+    "no_pattern": "パターンなし — 'パターン分析'をクリックして開始",
+    "insufficient_data": "パターン検出には少なくとも5件の評価が必要です",
+    "pattern_computed_at": "計算日時: {{datetime}}",
+    "verdict": {
+      "correct": "正解",
+      "wrong": "不正解",
+      "unclear": "不明"
+    },
+    "type": {
+      "buy": "買い",
+      "sell": "売り",
+      "hold": "保有",
+      "watch": "観察"
+    },
+    "mood": {
+      "calm": "冷静",
+      "excited": "興奮",
+      "fearful": "恐怖",
+      "fomo": "FOMO",
+      "neutral": "中立"
+    },
+    "asset_type": {
+      "stock": "株式",
+      "gold": "金",
+      "crypto": "仮想通貨",
+      "savings": "預金"
+    },
+    "form": {
+      "asset_type": "資産タイプ",
+      "ticker": "銘柄コード",
+      "decision_type": "決定タイプ",
+      "decided_at": "決定日時",
+      "entry_price": "エントリー価格 (VND)",
+      "entry_price_savings": "元本額 (VND)",
+      "volume": "ポートフォリオ比率 (%)",
+      "quantity": "数量",
+      "buy_amount": "購入金額 (VND)",
+      "reason": "理由",
+      "confidence": "自信度",
+      "mood": "気分",
+      "sources": "参考資料",
+      "stop_loss": "ストップロス",
+      "take_profit": "利確",
+      "dca": "DCA",
+      "trailing_stop": "トレーリングストップ",
+      "max_portfolio_pct": "最大ポートフォリオ比率 (%)"
+    },
+    "error": {
+      "reason_too_short": "理由は20文字以上必要です",
+      "stop_loss_required": "買いの場合はストップロスが必要です",
+      "exit_pct_exceeds": "合計利確比率が100%を超えています",
+      "invalid_asset_type": "無効な資産タイプです",
+      "invalid_quantity": "数量は非負の整数でなければなりません",
+      "invalid_buy_amount": "購入金額は非負の整数でなければなりません",
+      "manual_price_required": "評価前に現在価格を入力してください"
+    },
+    "badge": {
+      "reviewed": "評価済み",
+      "not_reviewed": "未評価"
+    },
+    "col": {
+      "date": "日付",
+      "ticker": "銘柄",
+      "type": "タイプ",
+      "price": "エントリー価格",
+      "volume": "比率",
+      "reason_preview": "理由",
+      "status": "状態",
+      "asset_type": "資産タイプ"
+    },
+    "confirm_delete": "この決定を削除してもよろしいですか？",
+    "delete_success": "決定を削除しました。",
+    "save_success": "保存しました。",
+    "summary": {
+      "title": "決定サマリー",
+      "correct": "正解",
+      "wrong": "不正解",
+      "unclear": "不明",
+      "total": "合計",
+      "mistake_patterns": "繰り返しミスパターン",
+      "success_patterns": "成功パターン"
+    },
+    "review": {
+      "verdict_reason": "評価",
+      "strengths": "強み",
+      "weaknesses": "弱点",
+      "lessons": "教訓",
+      "price_at_review": "評価時の価格",
+      "change_pct": "エントリー比変化",
+      "current_price_preview": "現在価格",
+      "change_pct_preview": "変化率",
+      "manual_price_label": "現在価格 / 価値 (VND)",
+      "confirm_evaluate": "評価を確認",
+      "btn_cancel_evaluate": "キャンセル"
+    }
+  }
 }
