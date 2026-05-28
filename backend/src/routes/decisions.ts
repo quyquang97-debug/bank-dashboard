@@ -51,9 +51,13 @@ decisionsRouter.get("/summary", async (req: Request, res: Response) => {
     const total = correct + wrong + unclear;
 
     const [cacheRows] = await pool.execute<any[]>(
-      "SELECT * FROM decision_pattern_cache ORDER BY computed_at DESC LIMIT 1"
+      "SELECT * FROM decision_pattern_cache ORDER BY computed_at DESC"
     );
-    const latestCache = cacheRows.length > 0 ? cacheRows[0] : null;
+    const patternCaches = cacheRows.map((row) => ({
+      id: row.id,
+      computedAt: row.computed_at,
+      result: typeof row.result === "string" ? JSON.parse(row.result) : row.result,
+    }));
 
     return res.json({
       data: {
@@ -61,10 +65,9 @@ decisionsRouter.get("/summary", async (req: Request, res: Response) => {
         wrong,
         unclear,
         total,
-        patterns: total < 5 ? [] : (latestCache ? latestCache.result : null),
-        patternCache: latestCache
-          ? { computedAt: latestCache.computed_at, result: latestCache.result }
-          : null,
+        patterns: patternCaches.length > 0 ? patternCaches[0].result : null,
+        patternCache: patternCaches.length > 0 ? patternCaches[0] : null,
+        patternCaches,
       },
     });
   } catch (err) {
@@ -97,6 +100,67 @@ decisionsRouter.post("/summary/pattern", async (req: Request, res: Response) => 
     }
 
     const result = await analyzePatterns(items, lang as "vi" | "en" | "ja");
+
+    const insertResult = await pool.execute(
+      "INSERT INTO decision_pattern_cache (computed_at, result) VALUES (NOW(), ?)",
+      [JSON.stringify(result)]
+    );
+    const insertId = (insertResult[0] as any).insertId;
+
+    const [newRow] = await pool.execute<any[]>(
+      "SELECT * FROM decision_pattern_cache WHERE id = ?",
+      [insertId]
+    );
+
+    return res.json({
+      data: {
+        result,
+        computedAt: newRow[0]?.computed_at,
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: message });
+  }
+});
+
+// PUT /api/decisions/summary/pattern/:id
+decisionsRouter.put("/summary/pattern/:id", async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const result = req.body as { mistakes: Array<{ description: string; count: number }>; successes: Array<{ description: string; count: number }> };
+    if (!result || !Array.isArray(result.mistakes) || !Array.isArray(result.successes)) {
+      return res.status(400).json({ error: "invalid_pattern" });
+    }
+    const [r] = await pool.execute<any[]>("SELECT id FROM decision_pattern_cache WHERE id = ?", [id]);
+    if (r.length === 0) return res.status(404).json({ error: "not_found" });
+    await pool.execute("UPDATE decision_pattern_cache SET result = ? WHERE id = ?", [JSON.stringify(result), id]);
+    return res.json({ data: { ok: true } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: message });
+  }
+});
+
+// DELETE /api/decisions/summary/pattern/:id
+decisionsRouter.delete("/summary/pattern/:id", async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    await pool.execute("DELETE FROM decision_pattern_cache WHERE id = ?", [id]);
+    return res.json({ data: { ok: true } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: message });
+  }
+});
+
+// POST /api/decisions/summary/pattern/manual
+decisionsRouter.post("/summary/pattern/manual", async (req: Request, res: Response) => {
+  try {
+    const result = req.body as { mistakes: Array<{ description: string; count: number }>; successes: Array<{ description: string; count: number }> };
+    if (!result || !Array.isArray(result.mistakes) || !Array.isArray(result.successes)) {
+      return res.status(400).json({ error: "invalid_pattern" });
+    }
 
     const insertResult = await pool.execute(
       "INSERT INTO decision_pattern_cache (computed_at, result) VALUES (NOW(), ?)",

@@ -141,13 +141,20 @@ export interface DecisionReview {
   model_id: string;
 }
 
+export interface PatternCacheEntry {
+  id: number;
+  computedAt: string;
+  result: PatternResult;
+}
+
 export interface DecisionSummaryResponse {
   correct: number;
   wrong: number;
   unclear: number;
   total: number;
   patterns: unknown[] | null;
-  patternCache: { computedAt: string; result: PatternResult } | null;
+  patternCache: PatternCacheEntry | null;
+  patternCaches: PatternCacheEntry[];
 }
 
 export interface PatternResult {
@@ -308,6 +315,39 @@ export async function triggerPatternAnalysis(lang: string): Promise<{ data: { re
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "unknown" }));
     throw new Error(err.error ?? "pattern_failed");
+  }
+  return res.json();
+}
+
+export async function updatePattern(id: number, result: PatternResult): Promise<void> {
+  const res = await decisionFetch(`/summary/pattern/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(result),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "unknown" }));
+    throw new Error(err.error ?? "update_failed");
+  }
+}
+
+export async function deletePattern(id: number): Promise<void> {
+  const res = await decisionFetch(`/summary/pattern/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "unknown" }));
+    throw new Error(err.error ?? "delete_failed");
+  }
+}
+
+export async function saveManualPattern(result: PatternResult): Promise<{ data: { result: PatternResult; computedAt: string } }> {
+  const res = await decisionFetch("/summary/pattern/manual", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(result),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "unknown" }));
+    throw new Error(err.error ?? "save_failed");
   }
   return res.json();
 }

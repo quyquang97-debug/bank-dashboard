@@ -161,6 +161,9 @@ Tất cả API calls đều đi qua file này. Base URL lấy từ `VITE_API_BAS
 | `updateNote(id, note)` | PUT | `/api/decisions/:id/note` | Quyết định |
 | `fetchDecisionSummary(filters)` | GET | `/api/decisions/summary` | Tổng kết |
 | `triggerPatternAnalysis(lang)` | POST | `/api/decisions/summary/pattern` | Tổng kết |
+| `saveManualPattern(result)` | POST | `/api/decisions/summary/pattern/manual` | Tổng kết |
+| `updatePattern(id, result)` | PUT | `/api/decisions/summary/pattern/:id` | Tổng kết |
+| `deletePattern(id)` | DELETE | `/api/decisions/summary/pattern/:id` | Tổng kết |
 
 ---
 
@@ -366,44 +369,62 @@ interface Review {
 
 **State:**
 ```typescript
-const [from, setFrom]           // ISO date
-const [to, setTo]               // ISO date
-const [summary, setSummary]     // SummaryData
-const [analyzing, setAnalyzing] // Loading state cho pattern
+const [filterFrom, setFilterFrom]           // ISO date
+const [filterTo, setFilterTo]               // ISO date
+const [summary, setSummary]                 // DecisionSummaryResponse
+const [computing, setComputing]             // Loading state AI pattern
+const [showManualForm, setShowManualForm]   // Hiển thị form thêm thủ công
+const [manualMistakes, setManualMistakes]   // PatternItem[] — form thủ công
+const [manualSuccesses, setManualSuccesses] // PatternItem[] — form thủ công
 ```
 
 **UI Sections:**
 
 1. **Verdict Bars:**
    ```
-   ĐÚNG   ████████████ 60% (12 QĐ)
-   SAI    ████ 20% (4 QĐ)
+   ĐÚNG    ████████████ 60% (12 QĐ)
+   SAI     ████ 20% (4 QĐ)
    CHƯA_RÕ ████ 20% (4 QĐ)
    ```
 
-2. **Phân tích pattern** (chỉ hiển thị nếu ≥ 5 reviews):
-   - Nút "Phân tích lỗi" → POST `/api/decisions/summary/pattern?lang=vi`
-   - Kết quả:
-     - **Mistake patterns:** Các lỗi lặp lại + ví dụ
-     - **Success patterns:** Các yếu tố quyết định đúng
-   - Hiển thị `computed_at` (dùng cache nếu đã có)
+2. **Phân tích pattern:**
+   - **Nút "Tính pattern" (AI):** POST `/api/decisions/summary/pattern?lang=vi` — yêu cầu ≥ 5 reviews
+   - **Nút "Thêm thủ công":** Mở form inline để nhập pattern không cần AI
+   - **PatternCacheList:** Accordion list tất cả patterns đã lưu (mới nhất mở sẵn)
+     - Mỗi entry có nút **Sửa** (edit inline) và **Xoá** (confirm trước khi xoá)
+     - Chỉ hiện thông báo "chưa có pattern" khi `patternCaches` rỗng
 
-**Interface:**
+**Sub-components:**
+- `PatternCacheList` — accordion list, nhận `onRefresh` callback để reload sau edit/delete
+- `ManualPatternForm` — form thêm pattern thủ công (dùng chung `PatternItemList`)
+- `PatternItemList` — danh sách item có thể thêm/xoá (top-level để tránh mất focus khi gõ)
+- `PatternDisplay` — hiển thị một `PatternResult` (mistakes + successes)
+
+**Interfaces:**
 ```typescript
-interface SummaryData {
+interface PatternCacheEntry {
+  id: number
+  computedAt: string
+  result: PatternResult
+}
+
+interface PatternResult {
+  mistakes: Array<{ description: string; count: number }>
+  successes: Array<{ description: string; count: number }>
+}
+
+interface DecisionSummaryResponse {
   correct: number
   wrong: number
   unclear: number
   total: number
-  pattern?: {
-    computed_at: string
-    result: {
-      mistake_patterns: Array<{ pattern: string; examples: string[] }>
-      success_patterns: Array<{ pattern: string; examples: string[] }>
-    }
-  }
+  patterns: PatternResult | null        // latest (backward compat)
+  patternCache: PatternCacheEntry | null // latest
+  patternCaches: PatternCacheEntry[]    // toàn bộ lịch sử
 }
 ```
+
+> **Lưu ý:** `PatternItemList` phải là top-level function (không định nghĩa bên trong component khác) để tránh React unmount/remount input mỗi lần gõ ký tự.
 
 ---
 
@@ -620,8 +641,13 @@ WEIGHT_VAL = 0.5     // Trọng số điểm valuation
 | PUT | `/api/decisions/:id/note` | Cập nhật ghi chú |
 | GET | `/api/decisions/:id/current-price` | Lấy giá hiện tại |
 | POST | `/api/decisions/:id/reviews` | Tạo review (AI hoặc manual) |
-| GET | `/api/decisions/summary` | Thống kê verdicts + pattern cache |
+| GET | `/api/decisions/summary` | Thống kê verdicts + toàn bộ pattern cache |
 | POST | `/api/decisions/summary/pattern` | Phân tích pattern qua AI |
+| POST | `/api/decisions/summary/pattern/manual` | Lưu pattern thủ công (không dùng AI) |
+| PUT | `/api/decisions/summary/pattern/:id` | Cập nhật pattern theo id |
+| DELETE | `/api/decisions/summary/pattern/:id` | Xoá pattern theo id |
+
+> **Lưu ý thứ tự route:** Các route `/summary/*` phải đăng ký **trước** `/:id` để Express không nhầm `summary` thành một `:id`.
 
 ---
 
@@ -698,43 +724,67 @@ WHERE dj.deleted_at IS NULL AND dr.reviewed_at = (
 )
 GROUP BY verdict
 
--- Pattern cache mới nhất
-SELECT * FROM decision_pattern_cache ORDER BY computed_at DESC LIMIT 1
+-- Toàn bộ pattern cache, mới nhất trước
+SELECT * FROM decision_pattern_cache ORDER BY computed_at DESC
 ```
+
+`result` từ DB được `JSON.parse()` trước khi trả về nếu là string (TEXT column).
 
 Response:
 ```typescript
 {
-  correct: number   // ĐÚNG
-  wrong: number     // SAI
-  unclear: number   // CHƯA_RÕ
+  correct: number
+  wrong: number
+  unclear: number
   total: number
-  pattern?: {
-    computed_at: string
-    result: PatternResult
-  }
+  patterns: PatternResult | null        // latest (backward compat)
+  patternCache: PatternCacheEntry | null // latest
+  patternCaches: PatternCacheEntry[]    // toàn bộ lịch sử, mới nhất đầu tiên
 }
 ```
 
 ---
 
-#### POST `/api/decisions/summary/pattern` — Phân tích pattern
+#### POST `/api/decisions/summary/pattern` — Phân tích pattern (AI)
 
 Query: `lang=vi|en|ja`
 
 ```
 1. Lấy tất cả weaknesses + lessons từ mọi reviews (không xóa mềm)
-2. Gom thành văn bản → aiService.analyzePatterns(text, lang)
-3. Claude trả về:
-   {
-     mistake_patterns: [{pattern, examples[]}]
-     success_patterns: [{pattern, examples[]}]
-   }
-4. Xóa cache cũ → INSERT cache mới vào decision_pattern_cache
-5. Return kết quả
+2. Nếu < 5 reviews → 400 insufficient_data
+3. Gom thành văn bản → aiService.analyzePatterns(text, lang)
+4. Claude trả về: { mistakes: [{description, count}], successes: [{description, count}] }
+5. INSERT vào decision_pattern_cache
+6. Return { result, computedAt }
 ```
 
 > **Lưu ý:** Chỉ nên gọi khi có ≥ 5 reviews. Frontend đã check điều kiện này trước khi cho phép bấm nút.
+
+---
+
+#### POST `/api/decisions/summary/pattern/manual` — Thêm pattern thủ công
+
+Body:
+```typescript
+{
+  mistakes: Array<{ description: string; count: number }>
+  successes: Array<{ description: string; count: number }>
+}
+```
+
+Lưu thẳng vào `decision_pattern_cache` không qua AI. Return `{ result, computedAt }`.
+
+---
+
+#### PUT `/api/decisions/summary/pattern/:id` — Cập nhật pattern
+
+Body giống POST manual. Cập nhật `result` của row có `id` tương ứng.
+
+---
+
+#### DELETE `/api/decisions/summary/pattern/:id` — Xoá pattern
+
+Xoá cứng (hard-delete) row khỏi `decision_pattern_cache`.
 
 ---
 
@@ -860,24 +910,40 @@ User vào tab Tổng kết
 
 Backend:
   ├── Đếm verdicts (ĐÚNG/SAI/CHƯA_RÕ)
-  └── Lấy pattern cache mới nhất (nếu có)
+  └── SELECT * FROM decision_pattern_cache ORDER BY computed_at DESC
+      (JSON.parse result nếu là string)
 
-→ Hiển thị verdict bars + pattern (nếu có cache)
+→ Hiển thị verdict bars
+→ PatternCacheList: accordion tất cả patterns (mới nhất mở sẵn)
 
-[Nếu user bấm "Phân tích lỗi"]
+[Nút "Tính pattern" — AI]
 → triggerPatternAnalysis(lang)
 → POST /api/decisions/summary/pattern?lang=vi
+  ├── Cần ≥ 5 reviews, không thì 400
+  ├── SELECT weaknesses, lessons FROM decision_review
+  ├── aiService.analyzePatterns(text, lang) → Claude API
+  └── INSERT vào decision_pattern_cache
+→ load() → PatternCacheList cập nhật
 
-Backend:
-  ├── SELECT weaknesses, lessons FROM decision_review (tất cả)
-  ├── Gom thành text lớn
-  ├── aiService.analyzePatterns(text, lang)
-  │   └── Claude API → {mistake_patterns[], success_patterns[]}
-  ├── DELETE old cache
-  └── INSERT new cache → decision_pattern_cache
+[Nút "Thêm thủ công"]
+→ Mở ManualPatternForm ở đầu danh sách
+→ User nhập mistakes[] + successes[]
+→ saveManualPattern(result)
+→ POST /api/decisions/summary/pattern/manual
+  └── INSERT vào decision_pattern_cache (không qua AI)
+→ load() → PatternCacheList cập nhật
 
-→ Return kết quả mới
-→ DecisionSummary hiển thị patterns
+[Nút Sửa trên một entry]
+→ Mở edit form inline trong accordion entry đó
+→ updatePattern(id, result)
+→ PUT /api/decisions/summary/pattern/:id
+→ load() → PatternCacheList cập nhật
+
+[Nút Xoá trên một entry]
+→ window.confirm()
+→ deletePattern(id)
+→ DELETE /api/decisions/summary/pattern/:id
+→ load() → PatternCacheList cập nhật
 ```
 
 ---
