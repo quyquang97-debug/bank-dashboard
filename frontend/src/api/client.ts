@@ -267,6 +267,32 @@ export async function createReview(id: number, lang: string, signal?: AbortSigna
   return res.json();
 }
 
+export interface ManualReviewInput {
+  verdict: "CORRECT" | "WRONG" | "UNCLEAR";
+  verdict_reason: string;
+  strengths?: string[];
+  weaknesses?: string[];
+  lessons?: string[];
+  current_price?: number;
+}
+
+export async function createManualReview(id: number, input: ManualReviewInput): Promise<{ data: DecisionReview }> {
+  const body = JSON.stringify({ mode: "manual", ...input });
+  const res = await decisionFetch(`/${id}/reviews`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "unknown" }));
+    const e = new Error(err.error ?? "review_failed");
+    (e as any).status = res.status;
+    (e as any).body = err;
+    throw e;
+  }
+  return res.json();
+}
+
 export async function fetchDecisionSummary(params?: { from?: string; to?: string }, signal?: AbortSignal) {
   const q = new URLSearchParams();
   if (params?.from) q.set("from", params.from);

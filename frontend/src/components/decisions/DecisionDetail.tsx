@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { fetchDecision, deleteDecision, updateDecisionNote, createReview, fetchCurrentPrice } from "../../api/client";
+import { fetchDecision, deleteDecision, updateDecisionNote, createReview, createManualReview, fetchCurrentPrice } from "../../api/client";
 import type { DecisionEntry, DecisionReview } from "../../api/client";
 
 interface Props {
@@ -82,13 +82,24 @@ function RiskPlanTable({ plan }: { plan: Record<string, unknown> }) {
 function ReviewCard({ review }: { review: DecisionReview }) {
   const { t } = useTranslation();
   const verdictColor = review.verdict === "CORRECT" ? "#50dc78" : review.verdict === "WRONG" ? "#ff5050" : "#f5c842";
+  const isManual = review.model_id === "manual";
   return (
     <div style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", padding: "1rem", marginBottom: "0.75rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
-        <span style={{ fontWeight: 700, color: verdictColor, fontSize: "1rem" }}>
-          {t(`decisions.verdict.${review.verdict.toLowerCase()}`)}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.6rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <span style={{ fontWeight: 700, color: verdictColor, fontSize: "1rem" }}>
+            {t(`decisions.verdict.${review.verdict.toLowerCase()}`)}
+          </span>
+          {isManual && (
+            <span style={{ fontSize: "0.72rem", padding: "0.1rem 0.45rem", borderRadius: "4px", background: "rgba(255,255,255,0.1)", opacity: 0.7, fontWeight: 500 }}>
+              ✍️ Thủ công
+            </span>
+          )}
+        </div>
+        <span style={{ opacity: 0.55, fontSize: "0.8rem", textAlign: "right", lineHeight: 1.4 }}>
+          <span style={{ opacity: 0.6, fontSize: "0.75rem", display: "block" }}>Đánh giá lúc</span>
+          {formatDate(review.reviewed_at)}
         </span>
-        <span style={{ opacity: 0.4, fontSize: "0.8rem" }}>{formatDate(review.reviewed_at)}</span>
       </div>
       <p style={{ margin: "0 0 0.75rem", opacity: 0.85 }}>{review.verdict_reason}</p>
       {review.strengths?.length > 0 && (
@@ -109,11 +120,11 @@ function ReviewCard({ review }: { review: DecisionReview }) {
           <ul style={{ margin: 0, paddingLeft: "1.2rem" }}>{review.lessons.map((s, i) => <li key={i} style={{ fontSize: "0.87rem", marginBottom: "0.15rem" }}>{s}</li>)}</ul>
         </div>
       )}
-      {review.price_snapshot && (
+      {review.price_snapshot && review.price_snapshot.currentPrice != null && (
         <div style={{ marginTop: "0.75rem", borderTop: "1px solid rgba(255,255,255,0.07)", paddingTop: "0.5rem", display: "flex", gap: "1.5rem", fontSize: "0.82rem", opacity: 0.65 }}>
           <span>{t("decisions.review.price_at_review")}: {formatVND(review.price_snapshot.currentPrice)}</span>
-          <span style={{ color: review.price_snapshot.changePct >= 0 ? "#50dc78" : "#ff5050" }}>
-            {t("decisions.review.change_pct")}: {formatPct(review.price_snapshot.changePct)}
+          <span style={{ color: (review.price_snapshot.changePct ?? 0) >= 0 ? "#50dc78" : "#ff5050" }}>
+            {t("decisions.review.change_pct")}: {formatPct(review.price_snapshot.changePct ?? 0)}
           </span>
         </div>
       )}
@@ -139,6 +150,18 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
   const [manualPrice, setManualPrice] = useState("");
   const [priceError, setPriceError] = useState<string | null>(null);
   const [evalError, setEvalError] = useState<string | null>(null);
+
+  // Eval mode: choose AI or manual
+  const [evalMode, setEvalMode] = useState<"ai" | "manual" | null>(null);
+
+  // Manual review form state
+  const [manualVerdict, setManualVerdict] = useState<"CORRECT" | "WRONG" | "UNCLEAR">("CORRECT");
+  const [manualReason, setManualReason] = useState("");
+  const [manualStrengths, setManualStrengths] = useState("");
+  const [manualWeaknesses, setManualWeaknesses] = useState("");
+  const [manualLessons, setManualLessons] = useState("");
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [manualError, setManualError] = useState<string | null>(null);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -236,6 +259,44 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
     setManualPrice("");
     setPriceError(null);
     setEvalError(null);
+    setEvalMode(null);
+    setManualReason("");
+    setManualStrengths("");
+    setManualWeaknesses("");
+    setManualLessons("");
+    setManualError(null);
+  }
+
+  async function handleManualSubmit() {
+    if (!entry || !manualReason.trim()) return;
+    setManualSubmitting(true);
+    setManualError(null);
+    try {
+      const splitLines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
+      // Ưu tiên giá từ API preview (STOCK); fallback sang manualPrice nếu non-STOCK
+      const currentPrice =
+        assetType === "STOCK" && pricePreview
+          ? pricePreview.currentPrice
+          : manualPrice !== "" ? parseFloat(manualPrice) : undefined;
+      const r = await createManualReview(entry.id, {
+        verdict: manualVerdict,
+        verdict_reason: manualReason.trim(),
+        strengths: splitLines(manualStrengths),
+        weaknesses: splitLines(manualWeaknesses),
+        lessons: splitLines(manualLessons),
+        current_price: currentPrice,
+      });
+      const updated = await fetchDecision(id);
+      setEntry(updated.data);
+      if (!updated.data.reviews?.some((rv) => rv.id === r.data.id)) {
+        setEntry((prev) => prev ? { ...prev, reviews: [r.data, ...(prev.reviews ?? [])] } : prev);
+      }
+      handleCancelEvaluate();
+    } catch (err: any) {
+      setManualError("Lưu thất bại: " + (err.message ?? "Lỗi không xác định"));
+    } finally {
+      setManualSubmitting(false);
+    }
   }
 
   async function handleNoteBlur() {
@@ -398,8 +459,9 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
 
         {pricePreviewState === "ready" && (
           <div style={{ padding: "0.75rem 1rem", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", background: "rgba(255,255,255,0.03)" }}>
+            {/* Price info row */}
             {assetType === "STOCK" && pricePreview && (
-              <div style={{ marginBottom: "0.6rem", display: "flex", gap: "1.5rem", fontSize: "0.9rem" }}>
+              <div style={{ marginBottom: "0.75rem", display: "flex", gap: "1.5rem", fontSize: "0.9rem" }}>
                 <span>{t("decisions.review.current_price_preview")}: <strong>{formatVND(pricePreview.currentPrice)}</strong></span>
                 <span style={{ color: pricePreview.changePct >= 0 ? "#50dc78" : "#ff5050" }}>
                   {t("decisions.review.change_pct_preview")}: {formatPct(pricePreview.changePct)}
@@ -407,7 +469,7 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
               </div>
             )}
             {assetType !== "STOCK" && (
-              <div style={{ marginBottom: "0.6rem" }}>
+              <div style={{ marginBottom: "0.75rem" }}>
                 <label style={{ display: "block", marginBottom: "0.3rem", opacity: 0.7, fontSize: "0.85rem" }}>
                   {t("decisions.review.manual_price_label")}
                 </label>
@@ -421,24 +483,165 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
                 />
               </div>
             )}
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button
-                onClick={handleConfirmEvaluate}
-                disabled={isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)}
-                style={{
-                  padding: "0.4rem 1rem", background: "#f5c842", color: "#0f1b35",
-                  border: "none", borderRadius: "6px", fontWeight: 700,
-                  cursor: (isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)) ? "not-allowed" : "pointer",
-                  opacity: (isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)) ? 0.4 : 1,
-                  fontSize: "0.88rem",
-                }}
-              >
-                {evaluating ? "Đang đánh giá…" : t("decisions.review.confirm_evaluate")}
-              </button>
-              <button onClick={handleCancelEvaluate} style={{ padding: "0.4rem 0.9rem", background: "transparent", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "6px", cursor: "pointer", color: "inherit", fontSize: "0.88rem" }}>
-                {t("decisions.review.btn_cancel_evaluate")}
-              </button>
-            </div>
+
+            {/* Mode selector */}
+            {evalMode === null && (
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.25rem" }}>
+                <button
+                  onClick={handleConfirmEvaluate}
+                  disabled={isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)}
+                  style={{
+                    padding: "0.4rem 1.1rem", background: "#f5c842", color: "#0f1b35",
+                    border: "none", borderRadius: "6px", fontWeight: 700,
+                    cursor: (isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)) ? "not-allowed" : "pointer",
+                    opacity: (isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)) ? 0.4 : 1,
+                    fontSize: "0.88rem",
+                  }}
+                >
+                  {evaluating ? "Đang đánh giá…" : "🤖 " + t("decisions.review.confirm_evaluate")}
+                </button>
+                <button
+                  onClick={() => setEvalMode("manual")}
+                  style={{
+                    padding: "0.4rem 1.1rem", background: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.25)", borderRadius: "6px", fontWeight: 600,
+                    cursor: "pointer", color: "inherit", fontSize: "0.88rem",
+                  }}
+                >
+                  ✍️ Đánh giá thủ công
+                </button>
+                <button onClick={handleCancelEvaluate} style={{ padding: "0.4rem 0.9rem", background: "transparent", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "6px", cursor: "pointer", color: "inherit", fontSize: "0.88rem" }}>
+                  {t("decisions.review.btn_cancel_evaluate")}
+                </button>
+              </div>
+            )}
+
+            {/* AI confirm (when mode = ai, e.g. button already clicked above via handleConfirmEvaluate) */}
+            {evalMode === "ai" && (
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                <button
+                  onClick={handleConfirmEvaluate}
+                  disabled={isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)}
+                  style={{
+                    padding: "0.4rem 1rem", background: "#f5c842", color: "#0f1b35",
+                    border: "none", borderRadius: "6px", fontWeight: 700,
+                    cursor: (isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)) ? "not-allowed" : "pointer",
+                    opacity: (isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)) ? 0.4 : 1,
+                    fontSize: "0.88rem",
+                  }}
+                >
+                  {evaluating ? "Đang đánh giá…" : "🤖 " + t("decisions.review.confirm_evaluate")}
+                </button>
+                <button onClick={() => setEvalMode(null)} style={{ padding: "0.4rem 0.9rem", background: "transparent", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "6px", cursor: "pointer", color: "inherit", fontSize: "0.88rem" }}>
+                  ← Quay lại
+                </button>
+              </div>
+            )}
+
+            {/* Manual review form */}
+            {evalMode === "manual" && (
+              <div style={{ marginTop: "0.25rem", display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                {/* Verdict */}
+                <div>
+                  <label style={{ display: "block", fontSize: "0.83rem", opacity: 0.65, marginBottom: "0.25rem" }}>Kết quả đánh giá <span style={{ color: "#ff6b6b" }}>*</span></label>
+                  <div style={{ display: "flex", gap: "0.4rem" }}>
+                    {(["CORRECT", "WRONG", "UNCLEAR"] as const).map((v) => (
+                      <button
+                        key={v}
+                        onClick={() => setManualVerdict(v)}
+                        style={{
+                          padding: "0.3rem 0.9rem", borderRadius: "6px", fontWeight: 600, fontSize: "0.84rem",
+                          border: manualVerdict === v ? "2px solid" : "1px solid rgba(255,255,255,0.2)",
+                          borderColor: manualVerdict === v
+                            ? (v === "CORRECT" ? "#50dc78" : v === "WRONG" ? "#ff5050" : "#f5c842")
+                            : undefined,
+                          background: manualVerdict === v
+                            ? (v === "CORRECT" ? "rgba(80,220,120,0.12)" : v === "WRONG" ? "rgba(255,80,80,0.12)" : "rgba(245,200,66,0.12)")
+                            : "transparent",
+                          color: manualVerdict === v
+                            ? (v === "CORRECT" ? "#50dc78" : v === "WRONG" ? "#ff5050" : "#f5c842")
+                            : "inherit",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {v === "CORRECT" ? "✅ Đúng" : v === "WRONG" ? "❌ Sai" : "❓ Chưa rõ"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Verdict reason */}
+                <div>
+                  <label style={{ display: "block", fontSize: "0.83rem", opacity: 0.65, marginBottom: "0.25rem" }}>Lý do đánh giá <span style={{ color: "#ff6b6b" }}>*</span></label>
+                  <textarea
+                    value={manualReason}
+                    onChange={(e) => setManualReason(e.target.value)}
+                    placeholder="Nhận xét tổng quát về quyết định này…"
+                    rows={3}
+                    style={{ width: "100%", padding: "0.4rem 0.6rem", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)", color: "inherit", resize: "vertical", boxSizing: "border-box", fontSize: "0.87rem" }}
+                  />
+                </div>
+
+                {/* Strengths */}
+                <div>
+                  <label style={{ display: "block", fontSize: "0.83rem", opacity: 0.65, marginBottom: "0.25rem" }}>Điểm mạnh (mỗi dòng 1 ý, tuỳ chọn)</label>
+                  <textarea
+                    value={manualStrengths}
+                    onChange={(e) => setManualStrengths(e.target.value)}
+                    placeholder={"Phân tích kỹ trước khi vào lệnh\nTuân thủ stop-loss"}
+                    rows={2}
+                    style={{ width: "100%", padding: "0.4rem 0.6rem", borderRadius: "6px", border: "1px solid rgba(80,220,120,0.25)", background: "rgba(80,220,120,0.04)", color: "inherit", resize: "vertical", boxSizing: "border-box", fontSize: "0.87rem" }}
+                  />
+                </div>
+
+                {/* Weaknesses */}
+                <div>
+                  <label style={{ display: "block", fontSize: "0.83rem", opacity: 0.65, marginBottom: "0.25rem" }}>Điểm yếu (mỗi dòng 1 ý, tuỳ chọn)</label>
+                  <textarea
+                    value={manualWeaknesses}
+                    onChange={(e) => setManualWeaknesses(e.target.value)}
+                    placeholder={"Vào lệnh quá sớm\nKhông đặt take-profit"}
+                    rows={2}
+                    style={{ width: "100%", padding: "0.4rem 0.6rem", borderRadius: "6px", border: "1px solid rgba(255,80,80,0.25)", background: "rgba(255,80,80,0.04)", color: "inherit", resize: "vertical", boxSizing: "border-box", fontSize: "0.87rem" }}
+                  />
+                </div>
+
+                {/* Lessons */}
+                <div>
+                  <label style={{ display: "block", fontSize: "0.83rem", opacity: 0.65, marginBottom: "0.25rem" }}>Bài học rút ra (mỗi dòng 1 ý, tuỳ chọn)</label>
+                  <textarea
+                    value={manualLessons}
+                    onChange={(e) => setManualLessons(e.target.value)}
+                    placeholder={"Kiên nhẫn chờ điểm mua tốt hơn\nLuôn đặt SL trước khi vào lệnh"}
+                    rows={2}
+                    style={{ width: "100%", padding: "0.4rem 0.6rem", borderRadius: "6px", border: "1px solid rgba(255,200,66,0.25)", background: "rgba(255,200,66,0.04)", color: "inherit", resize: "vertical", boxSizing: "border-box", fontSize: "0.87rem" }}
+                  />
+                </div>
+
+                {manualError && <div style={{ color: "#ff6b6b", fontSize: "0.85rem" }}>{manualError}</div>}
+
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.1rem" }}>
+                  <button
+                    onClick={handleManualSubmit}
+                    disabled={manualSubmitting || !manualReason.trim()}
+                    style={{
+                      padding: "0.4rem 1.1rem", background: "#f5c842", color: "#0f1b35",
+                      border: "none", borderRadius: "6px", fontWeight: 700, fontSize: "0.88rem",
+                      cursor: (manualSubmitting || !manualReason.trim()) ? "not-allowed" : "pointer",
+                      opacity: (manualSubmitting || !manualReason.trim()) ? 0.4 : 1,
+                    }}
+                  >
+                    {manualSubmitting ? "Đang lưu…" : "💾 Lưu đánh giá"}
+                  </button>
+                  <button onClick={() => setEvalMode(null)} style={{ padding: "0.4rem 0.9rem", background: "transparent", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "6px", cursor: "pointer", color: "inherit", fontSize: "0.88rem" }}>
+                    ← Quay lại
+                  </button>
+                  <button onClick={handleCancelEvaluate} style={{ padding: "0.4rem 0.9rem", background: "transparent", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "6px", cursor: "pointer", color: "inherit", fontSize: "0.88rem", opacity: 0.6 }}>
+                    {t("decisions.review.btn_cancel_evaluate")}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

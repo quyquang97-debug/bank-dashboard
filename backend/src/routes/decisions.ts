@@ -365,7 +365,94 @@ decisionsRouter.post("/:id/reviews", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const lang = ((req.query.lang as string) ?? "vi") as "vi" | "en" | "ja";
-    const { current_price: clientCurrentPrice } = req.body as { current_price?: number };
+    const {
+      mode,
+      current_price: clientCurrentPrice,
+      verdict: manualVerdict,
+      verdict_reason: manualVerdictReason,
+      strengths: manualStrengths,
+      weaknesses: manualWeaknesses,
+      lessons: manualLessons,
+    } = req.body as {
+      mode?: string;
+      current_price?: number;
+      verdict?: string;
+      verdict_reason?: string;
+      strengths?: string[];
+      weaknesses?: string[];
+      lessons?: string[];
+    };
+
+    // ── Manual review mode ────────────────────────────────────────────────────
+    if (mode === "manual") {
+      if (!manualVerdict || !["CORRECT", "WRONG", "UNCLEAR"].includes(manualVerdict)) {
+        return res.status(400).json({ error: "invalid_verdict" });
+      }
+      if (!manualVerdictReason || manualVerdictReason.trim().length === 0) {
+        return res.status(400).json({ error: "verdict_reason_required" });
+      }
+
+      const [entries] = await pool.execute<any[]>(
+        "SELECT * FROM decision_journal WHERE id = ? AND deleted_at IS NULL",
+        [id]
+      );
+      if (entries.length === 0) return res.status(404).json({ error: "not_found" });
+
+      const entry = entries[0];
+      const decidedAt = new Date(entry.decided_at);
+      const diffMs = Date.now() - decidedAt.getTime();
+      if (diffMs < 24 * 60 * 60 * 1000) {
+        return res.status(400).json({ error: "too_soon" });
+      }
+
+      // Build price snapshot if current_price provided
+      let priceSnapshotManual: object | null = null;
+      if (clientCurrentPrice != null && entry.entry_price != null) {
+        const assetType: string = entry.asset_type ?? "STOCK";
+        if (assetType === "STOCK") {
+          const { formatDateForVietstock, getHistoricalPrices, buildPriceSnapshot } = await import("../lib/priceService.js");
+          const riskPlan = entry.risk_plan
+            ? (typeof entry.risk_plan === "string" ? JSON.parse(entry.risk_plan) : entry.risk_plan)
+            : null;
+          try {
+            const startDate = formatDateForVietstock(entry.decided_at);
+            const endDate = formatDateForVietstock(new Date().toISOString());
+            const history = await getHistoricalPrices(entry.ticker, startDate, endDate).catch(() => []);
+            priceSnapshotManual = buildPriceSnapshot(entry.entry_price ?? 0, riskPlan, history, clientCurrentPrice);
+          } catch {
+            priceSnapshotManual = null;
+          }
+        } else {
+          const { buildNonStockPriceSnapshot } = await import("../lib/priceService.js");
+          priceSnapshotManual = buildNonStockPriceSnapshot(entry.entry_price ?? 0, clientCurrentPrice);
+        }
+      }
+
+      const insertResult = await pool.execute(
+        `INSERT INTO decision_review
+           (decision_id, reviewed_at, verdict, verdict_reason, strengths, weaknesses, lessons, price_snapshot, model_id, prompt_hash)
+         VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          Number(id),
+          manualVerdict,
+          manualVerdictReason.trim(),
+          JSON.stringify(Array.isArray(manualStrengths) ? manualStrengths.filter(Boolean) : []),
+          JSON.stringify(Array.isArray(manualWeaknesses) ? manualWeaknesses.filter(Boolean) : []),
+          JSON.stringify(Array.isArray(manualLessons) ? manualLessons.filter(Boolean) : []),
+          priceSnapshotManual !== null ? JSON.stringify(priceSnapshotManual) : JSON.stringify({}),
+          "manual",
+          "",
+        ]
+      );
+      const insertId = (insertResult[0] as any).insertId;
+      const [newReview] = await pool.execute<any[]>(
+        "SELECT * FROM decision_review WHERE id = ?",
+        [insertId]
+      );
+      return res.json({ data: newReview[0] });
+    }
+    // ── End manual mode ───────────────────────────────────────────────────────
+
 
     const [entries] = await pool.execute<any[]>(
       "SELECT * FROM decision_journal WHERE id = ? AND deleted_at IS NULL",
@@ -453,9 +540,9 @@ decisionsRouter.post("/:id/reviews", async (req: Request, res: Response) => {
         JSON.stringify(reviewOutput.strengths),
         JSON.stringify(reviewOutput.weaknesses),
         JSON.stringify(reviewOutput.lessons),
-        snapshotForStorage !== null ? JSON.stringify(snapshotForStorage) : null,
+        snapshotForStorage !== null ? JSON.stringify(snapshotForStorage) : JSON.stringify({}),
         reviewOutput.modelId,
-        reviewOutput.promptHash,
+        reviewOutput.promptHash ?? "",
       ]
     );
     const insertId = (insertResult[0] as any).insertId;
