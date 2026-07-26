@@ -24,7 +24,14 @@ const TICKER_PLACEHOLDERS: Record<AssetType, string> = {
 };
 
 function now(): string {
-  return new Date().toISOString().slice(0, 16);
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 function calcTotal(price: string, qty: string): string {
@@ -119,6 +126,7 @@ export function DecisionForm({ entry, onSave, onCancel }: Props) {
   const [serverError, setServerError] = useState<string | null>(null);
 
   const isSavings = assetType === "SAVINGS";
+  const isStock = assetType === "STOCK";
   const isBuy = decisionType === "BUY";
   const requiresPrice = decisionType === "BUY" || decisionType === "SELL";
   const showRiskPlan = !isSavings;
@@ -149,8 +157,18 @@ export function DecisionForm({ entry, onSave, onCancel }: Props) {
     setSubmitting(true);
     setServerError(null);
 
-    const riskPlan: RiskPlan | null = showRiskPlan && (isBuy || (rp && decisionType !== "BUY")) ? {
-      stop_loss: hasStopLoss && slValue ? { mode: "abs", value: parseFloat(slValue), ...(slExitQty ? { exit_qty: parseInt(slExitQty, 10) } : {}) } : undefined,
+    const hasRiskPlanInput =
+      (hasStopLoss && Boolean(slValue)) ||
+      tps.some((tp) => Boolean(tp.value || tp.exit_qty)) ||
+      dcas.some((d) => Boolean(d.value || d.add_qty));
+
+    const riskPlan: RiskPlan | null = showRiskPlan && (isBuy || rp != null || hasRiskPlanInput) ? {
+      ...rp,
+      stop_loss: hasStopLoss && slValue ? {
+        mode: "abs",
+        value: parseFloat(slValue),
+        ...(slExitQty ? { exit_qty: isStock ? parseInt(slExitQty, 10) : parseFloat(slExitQty) } : {}),
+      } : undefined,
       take_profits: tps.map((tp) => ({ mode: "abs", value: parseFloat(tp.value), exit_pct: parseFloat(tp.exit_qty) })),
       dca_levels: dcas.map((d) => ({ mode: "abs", value: parseFloat(d.value), add_volume: parseFloat(d.add_qty) })),
     } : null;
@@ -162,7 +180,9 @@ export function DecisionForm({ entry, onSave, onCancel }: Props) {
       decided_at: decidedAt.replace("T", " ") + ":00",
       entry_price: entryPrice ? parseFloat(entryPrice) : null,
       volume: null,
-      quantity: showQuantity && quantity ? parseInt(quantity, 10) : null,
+      quantity: showQuantity && quantity
+        ? (isStock ? parseInt(quantity, 10) : parseFloat(quantity))
+        : null,
       buy_amount: buyAmount ? parseInt(buyAmount, 10) : null,
       risk_plan: riskPlan,
       reason,
@@ -215,8 +235,8 @@ export function DecisionForm({ entry, onSave, onCancel }: Props) {
     : `${t("decisions.form.entry_price")}${requiresPrice ? " *" : ""}`;
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: "680px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 1.5rem" }}>
+    <form onSubmit={handleSubmit} className="decision-form">
+      <div className="decision-form-grid">
         {/* Asset type */}
         <div style={fieldStyle}>
           <label style={labelStyle}>{t("decisions.form.asset_type")} *</label>
@@ -255,7 +275,20 @@ export function DecisionForm({ entry, onSave, onCancel }: Props) {
 
         <div style={fieldStyle}>
           <label style={labelStyle}>{entryPriceLabel}</label>
-          <PriceInput value={entryPrice} onChange={setEntryPrice} placeholder="VD: 25.000" style={inputStyle} />
+          {isStock ? (
+            <PriceInput value={entryPrice} onChange={setEntryPrice} placeholder="VD: 25.000" style={inputStyle} />
+          ) : (
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="any"
+              style={inputStyle}
+              value={entryPrice}
+              onChange={(e) => setEntryPrice(e.target.value)}
+              placeholder={isSavings ? "VD: 100000000" : "VD: 1234.56"}
+            />
+          )}
           {errors.entry_price && <div style={errStyle}>{errors.entry_price}</div>}
         </div>
 
@@ -264,8 +297,9 @@ export function DecisionForm({ entry, onSave, onCancel }: Props) {
             <label style={labelStyle}>{t("decisions.form.quantity")}</label>
             <input
               type="number"
+              inputMode={isStock ? "numeric" : "decimal"}
               min={0}
-              step={100}
+              step={isStock ? 1 : "any"}
               style={inputStyle}
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
@@ -296,18 +330,6 @@ export function DecisionForm({ entry, onSave, onCancel }: Props) {
         </div>
       </div>
 
-      <div style={fieldStyle}>
-        <label style={labelStyle}>{t("decisions.form.reason")} * (≥20 ký tự)</label>
-        <textarea
-          style={{ ...inputStyle, height: "120px", resize: "vertical" }}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          maxLength={5000}
-        />
-        <div style={{ fontSize: "0.78rem", opacity: 0.4, textAlign: "right" }}>{reason.length}/5000</div>
-        {errors.reason && <div style={errStyle}>{errors.reason}</div>}
-      </div>
-
       {/* Risk plan — hidden for SAVINGS */}
       {showRiskPlan && (
         <div style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px", padding: "1rem", marginBottom: "1rem" }}>
@@ -334,7 +356,7 @@ export function DecisionForm({ entry, onSave, onCancel }: Props) {
               <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 1fr 24px", gap: "0.4rem", marginBottom: "0.4rem", alignItems: "center" }}>
                 <PriceInput value={tp.value} onChange={(v) => setTps(tps.map((x, j) => j === i ? { ...x, value: v } : x))}
                   placeholder="VD: 30.000" style={inputStyle} />
-                <input type="number" min={0} step={100} style={inputStyle} placeholder="VD: 500"
+                <input type="number" inputMode={isStock ? "numeric" : "decimal"} min={0} step={isStock ? 1 : "any"} style={inputStyle} placeholder="VD: 500"
                   value={tp.exit_qty}
                   onChange={(e) => setTps(tps.map((x, j) => j === i ? { ...x, exit_qty: e.target.value } : x))} />
                 <input readOnly style={readonlyInputStyle} value={calcTotal(tp.value, tp.exit_qty)} placeholder="—" />
@@ -365,7 +387,7 @@ export function DecisionForm({ entry, onSave, onCancel }: Props) {
               <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 1fr 24px", gap: "0.4rem", marginBottom: "0.4rem", alignItems: "center" }}>
                 <PriceInput value={d.value} onChange={(v) => setDcas(dcas.map((x, j) => j === i ? { ...x, value: v } : x))}
                   placeholder="VD: 22.000" style={inputStyle} />
-                <input type="number" min={0} step={100} style={inputStyle} placeholder="VD: 500"
+                <input type="number" inputMode={isStock ? "numeric" : "decimal"} min={0} step={isStock ? 1 : "any"} style={inputStyle} placeholder="VD: 500"
                   value={d.add_qty}
                   onChange={(e) => setDcas(dcas.map((x, j) => j === i ? { ...x, add_qty: e.target.value } : x))} />
                 <input readOnly style={readonlyInputStyle} value={calcTotal(d.value, d.add_qty)} placeholder="—" />
@@ -396,7 +418,7 @@ export function DecisionForm({ entry, onSave, onCancel }: Props) {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 1fr 24px", gap: "0.4rem", alignItems: "center" }}>
                   <PriceInput value={slValue} onChange={setSlValue} placeholder="VD: 23.000" style={inputStyle} />
-                  <input type="number" min={0} step={100} style={inputStyle} placeholder="VD: 500"
+                  <input type="number" inputMode={isStock ? "numeric" : "decimal"} min={0} step={isStock ? 1 : "any"} style={inputStyle} placeholder="VD: 500"
                     value={slExitQty}
                     onChange={(e) => setSlExitQty(e.target.value)} />
                   <input readOnly style={readonlyInputStyle} value={calcTotal(slValue, slExitQty)} placeholder="—" />
@@ -416,6 +438,19 @@ export function DecisionForm({ entry, onSave, onCancel }: Props) {
           Risk plan lỗi: {errors["risk_plan.take_profits"] || errors["risk_plan.dca_levels"] || errors["risk_plan.stop_loss"]}
         </div>
       )}
+
+      <div style={fieldStyle}>
+        <label style={labelStyle}>{t("decisions.form.reason")} * (≥20 ký tự)</label>
+        <textarea
+          style={{ ...inputStyle, height: "120px", resize: "vertical" }}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          maxLength={5000}
+        />
+        <div style={{ fontSize: "0.78rem", opacity: 0.4, textAlign: "right" }}>{reason.length}/5000</div>
+        {errors.reason && <div style={errStyle}>{errors.reason}</div>}
+      </div>
+
       {serverError && <div style={{ ...errStyle, marginBottom: "1rem", padding: "0.5rem 0.75rem", background: "rgba(255,80,80,0.1)", borderRadius: "6px" }}>{serverError}</div>}
 
       <div style={{ display: "flex", gap: "0.75rem" }}>

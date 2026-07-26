@@ -133,7 +133,7 @@
       "stop_loss_required": "買いの場合はストップロスが必要です",
       "exit_pct_exceeds": "合計利確比率が100%を超えています",
       "invalid_asset_type": "無効な資産タイプです",
-      "invalid_quantity": "数量は非負の整数でなければなりません",
+      "invalid_quantity": "数量は0以上で入力してください（株式は整数のみ）",
       "invalid_buy_amount": "購入金額は非負の整数でなければなりません",
       "manual_price_required": "評価前に現在価格を入力してください"
     },

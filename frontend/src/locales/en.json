@@ -133,7 +133,7 @@
       "stop_loss_required": "Stop-loss is required for BUY",
       "exit_pct_exceeds": "Total exit % exceeds 100%",
       "invalid_asset_type": "Invalid asset type",
-      "invalid_quantity": "Quantity must be a non-negative integer",
+      "invalid_quantity": "Quantity must be non-negative (stocks require a whole number)",
       "invalid_buy_amount": "Buy amount must be a non-negative integer",
       "manual_price_required": "Please enter the current price before evaluating"
     },

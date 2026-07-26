@@ -100,7 +100,7 @@ export function DecisionSummary() {
   }
 
   return (
-    <div style={{ maxWidth: "700px" }}>
+    <div className="decision-summary">
       <h3 style={{ marginBottom: "1rem", opacity: 0.8 }}>{t("decisions.summary.title")}</h3>
 
       {/* Date filter */}
@@ -116,9 +116,9 @@ export function DecisionSummary() {
       {error && <p style={{ color: "#ff6b6b" }}>{t("error_load")}</p>}
 
       {!loading && summary && (
-        <>
+        <div className="decision-summary-grid">
           {/* Verdict bars */}
-          <div style={{ marginBottom: "1.5rem", background: "rgba(255,255,255,0.03)", borderRadius: "8px", padding: "1rem" }}>
+          <div className="decision-summary-panel" style={{ background: "rgba(255,255,255,0.03)", borderRadius: "8px", padding: "1rem" }}>
             <div style={{ marginBottom: "0.75rem", opacity: 0.5, fontSize: "0.82rem" }}>
               {t("decisions.summary.total")}: {summary.total}
             </div>
@@ -128,7 +128,7 @@ export function DecisionSummary() {
           </div>
 
           {/* Patterns */}
-          <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: "8px", padding: "1rem" }}>
+          <div className="decision-summary-panel" style={{ background: "rgba(255,255,255,0.03)", borderRadius: "8px", padding: "1rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
               <span style={{ fontWeight: 600, opacity: 0.8 }}>Patterns</span>
               <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -182,7 +182,7 @@ export function DecisionSummary() {
               </p>
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

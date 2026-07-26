@@ -133,7 +133,7 @@
       "stop_loss_required": "Bắt buộc có stop-loss khi BUY",
       "exit_pct_exceeds": "Tổng tỉ lệ chốt lời vượt 100%",
       "invalid_asset_type": "Loại tài sản không hợp lệ",
-      "invalid_quantity": "Số lượng phải là số nguyên không âm",
+      "invalid_quantity": "Số lượng phải là số không âm (cổ phiếu phải là số nguyên)",
       "invalid_buy_amount": "Số tiền mua phải là số nguyên không âm",
       "manual_price_required": "Vui lòng nhập giá hiện tại trước khi đánh giá"
     },

@@ -116,6 +116,7 @@ export interface DecisionEntry {
   created_at: string;
   updated_at: string;
   review_count?: number;
+  latest_verdict?: DecisionReview["verdict"] | null;
   reviews?: DecisionReview[];
 }
 

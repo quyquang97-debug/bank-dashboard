@@ -11,9 +11,11 @@ interface Props {
 const DECISION_TYPES = ["BUY", "SELL", "HOLD", "WATCH"] as const;
 const ASSET_TYPES = ["STOCK", "GOLD", "CRYPTO", "SAVINGS"] as const;
 
-function formatVND(n: number | null): string {
+function formatVND(n: number | null, assetType?: DecisionEntry["asset_type"]): string {
   if (n === null || n === undefined) return "—";
-  return n.toLocaleString("vi-VN") + " đ";
+  return n.toLocaleString("vi-VN", {
+    maximumFractionDigits: assetType && assetType !== "STOCK" ? 20 : 0,
+  }) + " đ";
 }
 
 function formatDate(iso: string): string {
@@ -67,18 +69,18 @@ export function DecisionTimeline({ onAdd, onSelect }: Props) {
   }
 
   return (
-    <div>
+    <div className="decisions-view">
       {/* Filter bar */}
-      <div style={{ marginBottom: "1rem" }}>
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center", marginBottom: "0.6rem" }}>
+      <div className="decision-filter-toolbar">
+        <div className="decision-filter-controls">
           <input
             type="text"
             placeholder={t("decisions.form.ticker")}
             value={filterTicker}
             onChange={(e) => setFilterTicker(e.target.value.toUpperCase())}
-            style={{ padding: "0.4rem 0.7rem", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)", color: "inherit", width: "120px" }}
+            className="decision-filter-ticker"
           />
-          <div style={{ display: "flex", gap: "0.4rem" }}>
+          <div className="decision-filter-group">
             {DECISION_TYPES.map((type) => (
               <button
                 key={type}
@@ -98,7 +100,7 @@ export function DecisionTimeline({ onAdd, onSelect }: Props) {
               </button>
             ))}
           </div>
-          <div style={{ display: "flex", gap: "0.4rem" }}>
+          <div className="decision-filter-group">
             {ASSET_TYPES.map((type) => (
               <button
                 key={type}
@@ -118,13 +120,13 @@ export function DecisionTimeline({ onAdd, onSelect }: Props) {
               </button>
             ))}
           </div>
-          <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
-            style={{ padding: "0.4rem 0.7rem", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)", color: "inherit" }} />
-          <span style={{ opacity: 0.5 }}>→</span>
-          <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
-            style={{ padding: "0.4rem 0.7rem", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)", color: "inherit" }} />
+          <div className="decision-date-range">
+            <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
+            <span aria-hidden="true">→</span>
+            <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
+          </div>
         </div>
-        <button onClick={onAdd} style={{
+        <button className="decision-add-button" onClick={onAdd} style={{
           padding: "0.45rem 1.1rem", borderRadius: "7px",
           background: "#f5c842", color: "#0f1b35", border: "none", cursor: "pointer", fontWeight: 700,
         }}>
@@ -139,7 +141,8 @@ export function DecisionTimeline({ onAdd, onSelect }: Props) {
         <p style={{ opacity: 0.5, textAlign: "center", padding: "2rem 0" }}>{t("decisions.empty_state")}</p>
       )}
       {!loading && entries.length > 0 && (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+        <div className="decision-table-wrap">
+        <table className="decision-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
               {(["date", "ticker", "asset_type", "type", "price", "reason_preview", "status"] as const).map((col) => (
@@ -174,23 +177,38 @@ export function DecisionTimeline({ onAdd, onSelect }: Props) {
                     {t(`decisions.type.${entry.decision_type.toLowerCase()}`)}
                   </span>
                 </td>
-                <td style={{ padding: "0.55rem 0.75rem" }}>{formatVND(entry.entry_price)}</td>
+                <td style={{ padding: "0.55rem 0.75rem" }}>{formatVND(entry.entry_price, entry.asset_type)}</td>
                 <td style={{ padding: "0.55rem 0.75rem", maxWidth: "300px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {entry.reason.slice(0, 120)}{entry.reason.length > 120 ? "…" : ""}
                 </td>
                 <td style={{ padding: "0.55rem 0.75rem" }}>
                   <span style={{
                     padding: "0.15rem 0.5rem", borderRadius: "4px", fontSize: "0.78rem",
-                    background: (entry.review_count ?? 0) > 0 ? "rgba(245,200,66,0.15)" : "rgba(255,255,255,0.06)",
-                    color: (entry.review_count ?? 0) > 0 ? "#f5c842" : "rgba(255,255,255,0.4)",
+                    background: entry.latest_verdict === "CORRECT"
+                      ? "rgba(80,220,120,0.15)"
+                      : entry.latest_verdict === "WRONG"
+                        ? "rgba(255,80,80,0.15)"
+                        : entry.latest_verdict === "UNCLEAR"
+                          ? "rgba(245,200,66,0.15)"
+                          : "rgba(255,255,255,0.06)",
+                    color: entry.latest_verdict === "CORRECT"
+                      ? "#50dc78"
+                      : entry.latest_verdict === "WRONG"
+                        ? "#ff5050"
+                        : entry.latest_verdict === "UNCLEAR"
+                          ? "#f5c842"
+                          : "rgba(255,255,255,0.4)",
                   }}>
-                    {(entry.review_count ?? 0) > 0 ? t("decisions.badge.reviewed") : t("decisions.badge.not_reviewed")}
+                    {entry.latest_verdict
+                      ? t(`decisions.verdict.${entry.latest_verdict.toLowerCase()}`)
+                      : t("decisions.badge.not_reviewed")}
                   </span>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

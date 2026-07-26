@@ -215,7 +215,12 @@ decisionsRouter.get("/", async (req: Request, res: Response) => {
     const [rows] = await pool.execute<any[]>(
       `SELECT dj.id, dj.ticker, dj.asset_type, dj.decision_type, dj.decided_at, dj.entry_price, dj.volume,
               dj.quantity, dj.buy_amount, dj.reason, dj.confidence, dj.mood, dj.created_at, dj.updated_at,
-              (SELECT COUNT(*) FROM decision_review dr WHERE dr.decision_id = dj.id) as review_count
+              (SELECT COUNT(*) FROM decision_review dr WHERE dr.decision_id = dj.id) as review_count,
+              (SELECT dr.verdict
+               FROM decision_review dr
+               WHERE dr.decision_id = dj.id
+               ORDER BY dr.reviewed_at DESC, dr.id DESC
+               LIMIT 1) as latest_verdict
        FROM decision_journal dj ${where}
        ORDER BY dj.decided_at DESC
        LIMIT ${limitVal} OFFSET ${offsetVal}`,

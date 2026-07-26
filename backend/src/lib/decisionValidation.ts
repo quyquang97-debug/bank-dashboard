@@ -74,7 +74,9 @@ export function validateEntry(body: EntryInput): ValidationError[] {
 
   if (body.quantity !== undefined && body.quantity !== null) {
     const q = Number(body.quantity);
-    if (!Number.isInteger(q) || q < 0) {
+    const assetType = body.asset_type ?? "STOCK";
+    const isInvalid = !Number.isFinite(q) || q < 0 || (assetType === "STOCK" && !Number.isInteger(q));
+    if (isInvalid) {
       errors.push({ field: "quantity", code: "invalid_quantity" });
     }
   }

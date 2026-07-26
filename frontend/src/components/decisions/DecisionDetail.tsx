@@ -15,6 +15,17 @@ function formatVND(n: number | null | undefined): string {
   return n.toLocaleString("vi-VN") + " đ";
 }
 
+function formatAssetValue(
+  n: number | null | undefined,
+  assetType: DecisionEntry["asset_type"],
+  suffix = "",
+): string {
+  if (n == null) return "—";
+  return n.toLocaleString("vi-VN", {
+    maximumFractionDigits: assetType === "STOCK" ? 0 : 20,
+  }) + suffix;
+}
+
 function formatPct(n: number): string {
   return (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
 }
@@ -180,13 +191,25 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
     return Date.now() - new Date(entry.decided_at).getTime() >= 24 * 60 * 60 * 1000;
   }
 
-  // Step 1: user clicks "Đánh giá"
-  async function handleEvaluateClick() {
-    if (!entry) return;
+  // Step 1: open the evaluation method selector. Price lookup only starts
+  // after the user explicitly chooses AI evaluation.
+  function handleEvaluateClick() {
     setPriceError(null);
     setEvalError(null);
-    const assetType = entry.asset_type ?? "STOCK";
+    setEvalMode(null);
+    setPricePreview(null);
+    setManualPrice("");
+    setPricePreviewState("ready");
+  }
 
+  async function handleChooseAi() {
+    if (!entry) return;
+    setEvalMode("ai");
+    setPriceError(null);
+    setEvalError(null);
+    setPricePreview(null);
+    setManualPrice("");
+    const assetType = entry.asset_type ?? "STOCK";
     if (assetType === "STOCK") {
       setPricePreviewState("loading");
       try {
@@ -198,10 +221,18 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
         setPricePreviewState("error");
       }
     } else {
-      // non-STOCK: show manual input immediately
-      setManualPrice("");
+      // AI still needs a user-provided current value for non-stock assets.
       setPricePreviewState("ready");
     }
+  }
+
+  function handleChooseManual() {
+    setEvalMode("manual");
+    setPriceError(null);
+    setEvalError(null);
+    setPricePreview(null);
+    setManualPrice("");
+    setPricePreviewState("ready");
   }
 
   // Step 2: user confirms evaluation
@@ -268,16 +299,13 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
   }
 
   async function handleManualSubmit() {
-    if (!entry || !manualReason.trim()) return;
+    if (!entry || !manualReason.trim() || !manualPriceValid) return;
     setManualSubmitting(true);
     setManualError(null);
     try {
       const splitLines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
-      // Ưu tiên giá từ API preview (STOCK); fallback sang manualPrice nếu non-STOCK
-      const currentPrice =
-        assetType === "STOCK" && pricePreview
-          ? pricePreview.currentPrice
-          : manualPrice !== "" ? parseFloat(manualPrice) : undefined;
+      // Manual evaluation always uses the price entered by the user.
+      const currentPrice = manualPrice !== "" ? parseFloat(manualPrice) : undefined;
       const r = await createManualReview(entry.id, {
         verdict: manualVerdict,
         verdict_reason: manualReason.trim(),
@@ -320,11 +348,11 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
   const isSavings = assetType === "SAVINGS";
   const entryPriceLabel = isSavings ? t("decisions.form.entry_price_savings") : "Giá vào";
 
-  const row = (label: string, value: React.ReactNode) => (
-    <tr>
-      <td style={{ padding: "0.35rem 1.5rem 0.35rem 0", opacity: 0.55, whiteSpace: "nowrap", verticalAlign: "top" }}>{label}</td>
-      <td style={{ padding: "0.35rem 0", verticalAlign: "top" }}>{value}</td>
-    </tr>
+  const detailItem = (label: string, value: React.ReactNode, wide = false) => (
+    <div className={`decision-detail-item${wide ? " decision-detail-item--wide" : ""}`}>
+      <div className="decision-detail-label">{label}</div>
+      <div className="decision-detail-value">{value}</div>
+    </div>
   );
 
   const isConfirmDisabled = evaluating || (assetType !== "STOCK" && (manualPrice === "" || isNaN(parseFloat(manualPrice))));
@@ -360,24 +388,22 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
       )}
 
       {/* Entry details */}
-      <table style={{ marginBottom: "1.5rem", fontSize: "0.9rem" }}>
-        <tbody>
-          {row("Mã CK", <strong style={{ fontSize: "1.1rem" }}>{entry.ticker}</strong>)}
-          {row(t("decisions.form.asset_type"), <span style={{ padding: "0.1rem 0.5rem", borderRadius: "4px", fontSize: "0.8rem", background: "rgba(255,255,255,0.08)" }}>{t(`decisions.asset_type.${assetType.toLowerCase()}`)}</span>)}
-          {row("Loại", <span style={{ color: entry.decision_type === "BUY" ? "#50dc78" : entry.decision_type === "SELL" ? "#ff5050" : "inherit" }}>{t(`decisions.type.${entry.decision_type.toLowerCase()}`)}</span>)}
-          {row("Ngày quyết định", formatDate(entry.decided_at))}
-          {row(entryPriceLabel, formatVND(entry.entry_price))}
-          {!isSavings && row(t("decisions.form.quantity"), entry.quantity != null ? entry.quantity.toLocaleString() : "—")}
-          {row(t("decisions.form.buy_amount"), entry.buy_amount != null ? formatVND(entry.buy_amount) : "—")}
-          {row("Tự tin", entry.confidence != null ? `${entry.confidence}/5` : "—")}
-          {row("Tâm trạng", entry.mood ? t(`decisions.mood.${entry.mood.toLowerCase()}`) : "—")}
-          {row("Lý do", <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{entry.reason}</div>)}
-          {row("Nguồn", entry.sources || "—")}
-          {riskPlan && !isSavings && row("Risk Plan", <RiskPlanTable plan={riskPlan} />)}
-          {row("Ngày tạo", formatDate(entry.created_at))}
-          {entry.updated_at && entry.updated_at !== entry.created_at && row("Cập nhật lần cuối", formatDate(entry.updated_at))}
-        </tbody>
-      </table>
+      <div className="decision-detail-grid">
+        {detailItem(t("decisions.form.asset_type"), <span className="decision-detail-badge">{t(`decisions.asset_type.${assetType.toLowerCase()}`)}</span>)}
+        {detailItem("Mã CK", <strong className="decision-detail-ticker">{entry.ticker}</strong>)}
+        {detailItem("Loại", <span style={{ color: entry.decision_type === "BUY" ? "#50dc78" : entry.decision_type === "SELL" ? "#ff5050" : "inherit" }}>{t(`decisions.type.${entry.decision_type.toLowerCase()}`)}</span>)}
+        {detailItem("Ngày quyết định", formatDate(entry.decided_at))}
+        {detailItem(entryPriceLabel, formatAssetValue(entry.entry_price, assetType, " đ"))}
+        {!isSavings && detailItem(t("decisions.form.quantity"), formatAssetValue(entry.quantity, assetType))}
+        {detailItem(t("decisions.form.buy_amount"), entry.buy_amount != null ? formatVND(entry.buy_amount) : "—")}
+        {detailItem("Tự tin", entry.confidence != null ? `${entry.confidence}/5` : "—")}
+        {detailItem("Tâm trạng", entry.mood ? t(`decisions.mood.${entry.mood.toLowerCase()}`) : "—")}
+        {detailItem("Nguồn", entry.sources || "—")}
+        {detailItem("Ngày tạo", formatDate(entry.created_at))}
+        {entry.updated_at && entry.updated_at !== entry.created_at && detailItem("Cập nhật lần cuối", formatDate(entry.updated_at))}
+        {riskPlan && !isSavings && detailItem("Risk Plan", <RiskPlanTable plan={riskPlan} />, true)}
+        {detailItem("Lý do", <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{entry.reason}</div>, true)}
+      </div>
 
       {/* User note */}
       <div style={{ marginBottom: "1.5rem" }}>
@@ -447,11 +473,20 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
               >
                 {evaluating ? "Đang đánh giá…" : t("decisions.review.confirm_evaluate")}
               </button>
-              <button onClick={handleEvaluateClick} style={{ padding: "0.35rem 0.9rem", background: "transparent", border: "1px solid rgba(255,200,0,0.4)", borderRadius: "6px", cursor: "pointer", color: "#f5c842", fontSize: "0.85rem" }}>
+              <button onClick={handleChooseAi} style={{ padding: "0.35rem 0.9rem", background: "transparent", border: "1px solid rgba(255,200,0,0.4)", borderRadius: "6px", cursor: "pointer", color: "#f5c842", fontSize: "0.85rem" }}>
                 Thử lại tự động
               </button>
-              <button onClick={handleCancelEvaluate} style={{ padding: "0.35rem 0.9rem", background: "transparent", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "6px", cursor: "pointer", color: "inherit", fontSize: "0.85rem" }}>
-                {t("decisions.review.btn_cancel_evaluate")}
+              <button
+                onClick={() => {
+                  setPricePreviewState("ready");
+                  setPricePreview(null);
+                  setManualPrice("");
+                  setPriceError(null);
+                  setEvalMode(null);
+                }}
+                style={{ padding: "0.35rem 0.9rem", background: "transparent", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "6px", cursor: "pointer", color: "inherit", fontSize: "0.85rem" }}
+              >
+                ← Chọn cách khác
               </button>
             </div>
           </div>
@@ -460,7 +495,7 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
         {pricePreviewState === "ready" && (
           <div style={{ padding: "0.75rem 1rem", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "8px", background: "rgba(255,255,255,0.03)" }}>
             {/* Price info row */}
-            {assetType === "STOCK" && pricePreview && (
+            {evalMode === "ai" && assetType === "STOCK" && pricePreview && (
               <div style={{ marginBottom: "0.75rem", display: "flex", gap: "1.5rem", fontSize: "0.9rem" }}>
                 <span>{t("decisions.review.current_price_preview")}: <strong>{formatVND(pricePreview.currentPrice)}</strong></span>
                 <span style={{ color: pricePreview.changePct >= 0 ? "#50dc78" : "#ff5050" }}>
@@ -468,7 +503,7 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
                 </span>
               </div>
             )}
-            {assetType !== "STOCK" && (
+            {evalMode === "ai" && assetType !== "STOCK" && (
               <div style={{ marginBottom: "0.75rem" }}>
                 <label style={{ display: "block", marginBottom: "0.3rem", opacity: 0.7, fontSize: "0.85rem" }}>
                   {t("decisions.review.manual_price_label")}
@@ -488,20 +523,18 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
             {evalMode === null && (
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.25rem" }}>
                 <button
-                  onClick={handleConfirmEvaluate}
-                  disabled={isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)}
+                  onClick={handleChooseAi}
                   style={{
                     padding: "0.4rem 1.1rem", background: "#f5c842", color: "#0f1b35",
                     border: "none", borderRadius: "6px", fontWeight: 700,
-                    cursor: (isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)) ? "not-allowed" : "pointer",
-                    opacity: (isConfirmDisabled || (assetType !== "STOCK" && !manualPriceValid)) ? 0.4 : 1,
+                    cursor: "pointer",
                     fontSize: "0.88rem",
                   }}
                 >
-                  {evaluating ? "Đang đánh giá…" : "🤖 " + t("decisions.review.confirm_evaluate")}
+                  🤖 Đánh giá bằng AI
                 </button>
                 <button
-                  onClick={() => setEvalMode("manual")}
+                  onClick={handleChooseManual}
                   style={{
                     padding: "0.4rem 1.1rem", background: "rgba(255,255,255,0.07)",
                     border: "1px solid rgba(255,255,255,0.25)", borderRadius: "6px", fontWeight: 600,
@@ -541,6 +574,24 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
             {/* Manual review form */}
             {evalMode === "manual" && (
               <div style={{ marginTop: "0.25rem", display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.83rem", opacity: 0.65, marginBottom: "0.25rem" }}>
+                    {t("decisions.review.manual_price_label")} <span style={{ color: "#ff6b6b" }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={manualPrice}
+                    onChange={(e) => setManualPrice(e.target.value)}
+                    placeholder="VD: 25000"
+                    style={{ padding: "0.4rem 0.7rem", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.05)", color: "inherit", width: "220px" }}
+                    autoFocus
+                  />
+                  <div style={{ marginTop: "0.25rem", fontSize: "0.78rem", opacity: 0.5 }}>
+                    Giá này sẽ được dùng để tính mức thay đổi tại thời điểm đánh giá.
+                  </div>
+                </div>
+
                 {/* Verdict */}
                 <div>
                   <label style={{ display: "block", fontSize: "0.83rem", opacity: 0.65, marginBottom: "0.25rem" }}>Kết quả đánh giá <span style={{ color: "#ff6b6b" }}>*</span></label>
@@ -623,12 +674,12 @@ export function DecisionDetail({ id, onEdit, onBack, onDeleted }: Props) {
                 <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.1rem" }}>
                   <button
                     onClick={handleManualSubmit}
-                    disabled={manualSubmitting || !manualReason.trim()}
+                    disabled={manualSubmitting || !manualReason.trim() || !manualPriceValid}
                     style={{
                       padding: "0.4rem 1.1rem", background: "#f5c842", color: "#0f1b35",
                       border: "none", borderRadius: "6px", fontWeight: 700, fontSize: "0.88rem",
-                      cursor: (manualSubmitting || !manualReason.trim()) ? "not-allowed" : "pointer",
-                      opacity: (manualSubmitting || !manualReason.trim()) ? 0.4 : 1,
+                      cursor: (manualSubmitting || !manualReason.trim() || !manualPriceValid) ? "not-allowed" : "pointer",
+                      opacity: (manualSubmitting || !manualReason.trim() || !manualPriceValid) ? 0.4 : 1,
                     }}
                   >
                     {manualSubmitting ? "Đang lưu…" : "💾 Lưu đánh giá"}

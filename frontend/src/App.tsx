@@ -11,6 +11,7 @@ import { ScreeningTab } from "./components/ScreeningTab";
 import { DecisionsTab } from "./components/decisions/DecisionsTab";
 import { DecisionSummary } from "./components/decisions/DecisionSummary";
 import { LangSwitcher } from "./components/LangSwitcher";
+import "./components/decisions/decisions.css";
 
 export default function App() {
   const { t } = useTranslation();
